@@ -42,7 +42,9 @@ git push -u origin main
    | `THAILANDPOST_API_KEY` | (ออปชัน) ถ้าจะใช้ auto-track ไปรษณีย์ไทย |
    | `FLASH_*` / `JT_*` / `KERRY_*` | (ออปชัน) ถ้ามีบัญชี merchant ของขนส่งนั้น |
 
-3. กด **Deploy** — build จะรัน `prisma db push` สร้างตารางบน Neon ให้อัตโนมัติ แล้วต่อด้วย `next build`
+3. กด **Deploy** — build = `next build` (ตารางถูกสร้างไว้แล้วตอนขั้นที่ 2 ด้วย `npm run db:push`)
+
+> ⚠️ **อย่าใส่ `prisma db push` ใน build script** — เพราะ Vercel ใช้ `DATABASE_URL` แบบ pooled (PgBouncer) ซึ่ง migration/DDL จะค้างเรื่อง advisory lock. สร้าง/อัปเดต schema ให้รัน `npm run db:push` บนเครื่อง (ใช้ direct connection) แทน
 
 ## 5. เช็คหลัง deploy
 - เข้า `https://<your-app>.vercel.app/admin` → login → สร้างออเดอร์ทดสอบ
