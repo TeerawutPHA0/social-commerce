@@ -1,0 +1,205 @@
+import Link from "next/link";
+import type { FlowStep } from "@/lib/orders";
+import {
+  getStats,
+  getMonthlySales,
+  listOrders,
+  formatTHB,
+  deriveStep,
+  dbAddressComplete,
+  FLOW_STEPS,
+  FLOW_LABELS,
+} from "@/lib/orders";
+import { DeleteOrderButton } from "@/components/admin/DeleteOrderButton";
+import { CopyOrderLink } from "@/components/admin/CopyOrderLink";
+import { MonthlySalesCard } from "@/components/admin/MonthlySalesCard";
+
+const FLOW_BADGE: Record<FlowStep, string> = {
+  address: "bg-pinksoft text-brown",
+  payment: "bg-blush text-brown border border-pinksoft",
+  verifying: "bg-blush text-pinkdeep border border-pinksoft",
+  to_ship: "bg-bluesoft/40 text-brown border border-pinksoft",
+  shipping: "bg-bluesoft/60 text-brown",
+  delivered: "bg-brown text-white",
+};
+
+export default async function AdminDashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ created?: string; no?: string; status?: string }>;
+}) {
+  const { created, no, status } = await searchParams;
+  const [stats, allOrders, monthlySales] = await Promise.all([
+    getStats(),
+    listOrders(),
+    getMonthlySales(6),
+  ]);
+
+  // ฟิลเตอร์ตามสถานะ flow (status=all หรือไม่ระบุ = แสดงทั้งหมด)
+  const activeFilter = FLOW_STEPS.includes(status as FlowStep) ? (status as FlowStep) : "all";
+  const orders =
+    activeFilter === "all"
+      ? allOrders
+      : allOrders.filter(
+          (o) =>
+            deriveStep(
+              dbAddressComplete(o),
+              o.paymentStatus,
+              !!o.trackingNo,
+              !!o.deliveredAt
+            ) === activeFilter
+        );
+
+  return (
+    <div className="flex flex-col gap-6">
+      {created && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium text-brown">✅ สร้างออเดอร์แล้ว — ส่งให้ลูกค้าได้เลย</p>
+          <CopyOrderLink token={created} orderNo={no ?? ""} />
+        </div>
+      )}
+
+      {/* สถิติ */}
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="ออเดอร์ทั้งหมด" value={String(stats.totalOrders)} />
+        <Stat label="ยอดขาย (ชำระแล้ว)" value={`฿${formatTHB(stats.revenue)}`} highlight />
+        <Stat label="รอตรวจสลิป" value={String(stats.byStep.verifying)} />
+        <Stat label="ที่ต้องจัดส่ง" value={String(stats.byStep.to_ship)} />
+      </section>
+
+      {/* กราฟยอดขายรายเดือน */}
+      <MonthlySalesCard data={monthlySales} />
+
+      {/* หัวข้อ + ปุ่มสร้าง */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-bold text-brown">ออเดอร์ ({orders.length})</h1>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/products"
+            className="rounded-xl border border-pinksoft bg-white px-4 py-2 text-sm font-semibold text-brown shadow-sm transition active:scale-95"
+          >
+            จัดการสินค้า
+          </Link>
+          <Link
+            href="/admin/orders/new"
+            className="rounded-xl border border-pinksoft bg-blush px-4 py-2 text-sm font-semibold text-brown shadow-sm transition active:scale-95"
+          >
+            + สร้างออเดอร์
+          </Link>
+        </div>
+      </div>
+
+      {/* ฟิลเตอร์สถานะ */}
+      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+        <FilterChip label="ทั้งหมด" count={allOrders.length} href="/admin" active={activeFilter === "all"} />
+        {FLOW_STEPS.map((s) => (
+          <FilterChip
+            key={s}
+            label={FLOW_LABELS[s]}
+            count={stats.byStep[s]}
+            href={`/admin?status=${s}`}
+            active={activeFilter === s}
+          />
+        ))}
+      </div>
+
+      {/* รายการ */}
+      {orders.length === 0 ? (
+        <p className="rounded-2xl bg-white p-8 text-center text-sm text-brown/50">
+          {allOrders.length === 0
+            ? "ยังไม่มีออเดอร์ — กด “สร้างออเดอร์” เพื่อเริ่ม"
+            : "ไม่มีออเดอร์ในสถานะนี้"}
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {orders.map((o) => {
+            const total = o.items.reduce((s, it) => s + it.qty * it.price, 0) + o.shippingFee;
+            const step = deriveStep(
+              dbAddressComplete(o),
+              o.paymentStatus,
+              !!o.trackingNo,
+              !!o.deliveredAt
+            );
+            return (
+              <li
+                key={o.id}
+                className="rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(86,62,50,0.06)]"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-brown">{o.orderNo}</span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${FLOW_BADGE[step]}`}
+                      >
+                        {FLOW_LABELS[step]}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-sm text-brown/70">
+                      {o.shippingName} · {o.shippingPhone}
+                    </p>
+                  </div>
+                  <span className="shrink-0 font-bold text-brown">฿{formatTHB(total)}</span>
+                </div>
+
+                <div className="mt-3 flex items-center gap-3 border-t border-pinksoft/60 pt-3 text-xs">
+                  <Link href={`/track/${o.token}`} target="_blank" className="font-medium text-brown underline">
+                    เปิดบิล
+                  </Link>
+                  <Link href={`/admin/orders/${o.id}`} className="font-medium text-brown">
+                    แก้ไข
+                  </Link>
+                  <span className="flex-1" />
+                  <DeleteOrderButton id={o.id} orderNo={o.orderNo} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function FilterChip({
+  label,
+  count,
+  href,
+  active,
+}: {
+  label: string;
+  count: number;
+  href: string;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+        active
+          ? "bg-brown text-white shadow-sm"
+          : "border border-pinksoft bg-white text-brown/70"
+      }`}
+    >
+      {label}
+      <span
+        className={`rounded-full px-1.5 text-[10px] ${
+          active ? "bg-white/25 text-white" : "bg-pinksoft/40 text-brown"
+        }`}
+      >
+        {count}
+      </span>
+    </Link>
+  );
+}
+
+function Stat({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(86,62,50,0.06)]">
+      <p className="text-xs text-brown/50">{label}</p>
+      <p className={`mt-1 text-xl font-bold ${highlight ? "text-pinkdeep" : "text-brown"}`}>
+        {value}
+      </p>
+    </div>
+  );
+}

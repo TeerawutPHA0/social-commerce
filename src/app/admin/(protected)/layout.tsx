@@ -1,0 +1,42 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { isAuthenticated } from "@/lib/auth";
+import { logoutAction } from "../actions";
+
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  if (!(await isAuthenticated())) redirect("/admin/login");
+
+  return (
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-10 border-b border-pinksoft bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-4">
+            <Link href="/admin" className="text-base font-bold text-brown">
+              🧸 puffiepiece · Admin
+            </Link>
+            <Link
+              href="/admin/products"
+              className="text-sm font-medium text-brown/60 transition hover:text-brown"
+            >
+              สินค้า
+            </Link>
+          </div>
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              className="rounded-lg border border-pinksoft px-3 py-1.5 text-xs font-medium text-brown transition active:scale-95"
+            >
+              ออกจากระบบ
+            </button>
+          </form>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-3xl px-4 py-6">{children}</div>
+    </div>
+  );
+}

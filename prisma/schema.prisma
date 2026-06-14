@@ -1,0 +1,86 @@
+// Prisma schema — Social Commerce OMS
+// ดู docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// ออเดอร์ 1 รายการ (ตรงกับ type Order ใน src/types/order.ts)
+model Order {
+  id      String @id @default(cuid())
+  /// token ลับใน URL เช่น order_9b1a2c3f
+  token   String @unique
+  /// เลขที่ใบสั่งซื้อที่ลูกค้าเห็น เช่น IQ21
+  orderNo String @unique
+
+  storeName String
+  storeLogo String @default("/logo.jpg")
+
+  /// received | preparing | shipped | delivered
+  status      String @default("received")
+  shippingFee Float  @default(0)
+
+  shippingName     String
+  shippingPhone    String
+  shippingAddress  String
+  shippingPostcode String?
+  shippingEmail    String?
+
+  /// full | deposit — จ่ายเต็ม หรือ มัดจำ
+  paymentType   String @default("full")
+  /// ยอดมัดจำ (บาท) ใช้เมื่อ paymentType = deposit
+  depositAmount Float  @default(0)
+
+  /// unpaid | pending | paid (สำหรับมัดจำ paid = ได้รับมัดจำแล้ว)
+  paymentStatus            String    @default("unpaid")
+  paymentTransferredAmount Float     @default(0)
+  paymentTransferredAt     DateTime?
+  /// URL สำหรับแสดงสลิป = /api/slip/<token> (null = ยังไม่อัพ)
+  paymentSlipUrl           String?
+  /// ไบต์รูปสลิป เก็บใน DB โดยตรง (Vercel เขียนไฟล์ไม่ได้) + ชนิดไฟล์
+  paymentSlipData          Bytes?
+  paymentSlipMime          String?
+
+  /// thailand-post | kerry | flash | jt (null = ยังไม่มีเลขพัสดุ)
+  trackingCourier String?
+  trackingNo      String?
+  /// เวลาที่ร้านยืนยันว่า "จัดส่งสำเร็จ" (null = ยังไม่สำเร็จ)
+  deliveredAt     DateTime?
+
+  note String?
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+/// แคตตาล็อกสินค้าที่ร้านบันทึกไว้ (ไว้เลือกตอนสร้างบิล) — แยกจาก OrderItem
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  price     Float    @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([name])
+}
+
+/// รายการสินค้าในออเดอร์
+model OrderItem {
+  id      String @id @default(cuid())
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId String
+
+  name  String
+  qty   Int
+  price Float
+
+  @@index([orderId])
+}

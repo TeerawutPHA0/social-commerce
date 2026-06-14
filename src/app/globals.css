@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+/* ===== Social Commerce — Pastel theme =====
+   Palette อ้างอิงจาก D:\Img\stye2.jpg
+   #FFDAE1 ชมพูพาสเทล · #563E32 น้ำตาล · #BAD2E0 ฟ้าอ่อน  */
+@theme {
+  --color-page: #fffcdd; /* พื้นหลังนอกกรอบ (เหลืองครีม) */
+  --color-cream: #fff7f3;
+  --color-blush: #fff0f5; /* ชมพูจางมาก — ใช้กับปุ่ม/วงกลม timeline */
+  --color-pinksoft: #ffdae1;
+  --color-pink: #f48fb1;
+  --color-pinkdeep: #e76a92;
+  --color-brown: #563e32;
+  --color-bluesoft: #bad2e0;
+  --color-bluedeep: #7ba7bf;
+
+  --font-sans: var(--font-prompt), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-page);
+  color: var(--color-brown);
+  font-family: var(--font-sans);
+}
