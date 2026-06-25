@@ -1,6 +1,6 @@
 # 🚀 Deploy ขึ้น Vercel + Neon (Postgres)
 
-โปรเจกต์นี้ย้ายจาก SQLite → **Postgres (Neon)** แล้ว และเก็บรูปสลิป **ใน DB** (เพราะ Vercel เขียนไฟล์ลง disk ไม่ได้) ทำตามขั้นตอนนี้ได้เลย
+โปรเจกต์นี้ใช้ **Postgres (Neon)** + เก็บรูปสลิปบน **Vercel Blob** (เพราะ Vercel เขียนไฟล์ลง disk ไม่ได้) และเป็น **multi-tenant** (หลายร้านในระบบเดียว — ออเดอร์/สินค้า/ผู้ใช้ผูกกับ `Store`) ทำตามขั้นตอนนี้ได้เลย
 
 ---
 
@@ -13,12 +13,20 @@
    ```
 
 ## 2. ทดสอบบนเครื่องก่อน (แนะนำ)
-1. แก้ `.env` → วาง `DATABASE_URL` เป็น string จาก Neon (ขั้นที่ 1)
-2. สร้างตารางบน Neon:
-   ```bash
-   npm run db:push
-   ```
+1. แก้ `.env` → วาง `DATABASE_URL` เป็น string จาก Neon (ขั้นที่ 1) + `BLOB_READ_WRITE_TOKEN` (ดูขั้นที่ 1.5)
+2. สร้าง/อัปเดตตารางบน Neon:
+   - **DB ว่าง / มีแต่ข้อมูล demo:** `npm run db:push` แล้ว `npx tsx prisma/seed.ts`
+   - **DB มีออเดอร์จริงอยู่แล้ว (อัปเกรดเป็น multi-tenant):** รัน migration ที่ preserve ข้อมูลด้วย **direct connection** (ไม่ใช่ pooled):
+     ```bash
+     DATABASE_URL="<direct-url>" npx tsx prisma/migrate-to-multitenant.ts
+     npx prisma db push   # ยืนยันว่า schema sync (ควรขึ้น already in sync)
+     ```
 3. ลองรัน: `npm run dev` → เข้า http://localhost:3000/admin (รหัสตาม `ADMIN_PASSWORD` ใน .env)
+
+## 1.5 สร้าง Vercel Blob store (เก็บรูปสลิป)
+1. Vercel dashboard → **Storage → Create → Blob**
+2. Connect เข้า project → Vercel จะเพิ่ม `BLOB_READ_WRITE_TOKEN` ให้อัตโนมัติ
+3. โลคัล: copy token นั้นมาใส่ `.env` เพื่อทดสอบอัปสลิปบนเครื่อง
 
 ## 3. ขึ้น GitHub
 ```bash
@@ -37,6 +45,7 @@ git push -u origin main
    | ตัวแปร | ค่า |
    |--------|-----|
    | `DATABASE_URL` | connection string (Pooled) จาก Neon |
+   | `BLOB_READ_WRITE_TOKEN` | เพิ่มอัตโนมัติเมื่อ connect Blob store (ขั้นที่ 1.5) |
    | `ADMIN_PASSWORD` | รหัสผ่านแอดมิน (ตั้งใหม่ให้ปลอดภัย) |
    | `SESSION_SECRET` | สุ่มยาวๆ เช่น `openssl rand -hex 32` |
    | `THAILANDPOST_API_KEY` | (ออปชัน) ถ้าจะใช้ auto-track ไปรษณีย์ไทย |
@@ -48,12 +57,13 @@ git push -u origin main
 
 ## 5. เช็คหลัง deploy
 - เข้า `https://<your-app>.vercel.app/admin` → login → สร้างออเดอร์ทดสอบ
-- เปิดลิงก์บิล → อัปสลิป → ดูว่ารูปขึ้น (เสิร์ฟจาก `/api/slip/<token>`)
+- เปิดลิงก์บิล → อัปสลิป → ดูว่ารูปขึ้น (เสิร์ฟจาก Vercel Blob โดยตรง)
 - ดูกราฟยอดขาย / ฟิลเตอร์ / จัดการสินค้า
 
 ---
 
 ## หมายเหตุ
-- **สลิปเก็บใน Postgres** (คอลัมน์ `paymentSlipData` แบบ bytea) เสิร์ฟผ่าน route `/api/slip/[token]` — query อื่นๆ `omit` คอลัมน์นี้ไว้ไม่ให้โหลดไบต์โดยไม่จำเป็น
+- **สลิปเก็บบน Vercel Blob** — `paymentSlipUrl` เก็บ public URL ของรูปตรง ๆ (Blob เติม suffix สุ่มให้ เดา URL ของออเดอร์อื่นไม่ได้) อัป/ลบผ่าน `src/lib/slip.ts`
+- **Multi-tenant**: ทุกออเดอร์/สินค้าผูกกับ `storeId` — ตอนนี้ resolve ร้านผ่าน `src/lib/store.ts` (`getDefaultStoreId`, ร้านเดียว); Phase 2 จะเปลี่ยนเป็นอิง session ของผู้ใช้
 - ถ้าแก้ schema ภายหลัง: รัน `npm run db:push` (เครื่อง) หรือปล่อยให้ build บน Vercel push ให้ — ถ้าเป็นการเปลี่ยนที่อาจทำข้อมูลหาย Prisma จะ error กันไว้ (ต้องสั่ง `--accept-data-loss` เอง)
 - อยากได้ migration history เป็นเรื่องเป็นราว ค่อยเปลี่ยนไปใช้ `prisma migrate` ทีหลังได้
