@@ -10,7 +10,8 @@
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:migrate-mt": "tsx prisma/migrate-to-multitenant.ts"
+    "db:migrate-mt": "tsx prisma/migrate-to-multitenant.ts",
+    "db:create-owner": "tsx prisma/create-owner.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

@@ -4,9 +4,17 @@ import crypto from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { checkPassword, startSession, endSession } from "@/lib/auth";
+import {
+  verifyPassword,
+  startSession,
+  endSession,
+  clientIp,
+  checkRateLimit,
+  recordFailedAttempt,
+  clearAttempts,
+} from "@/lib/auth";
 import { getTrackingStatus } from "@/lib/couriers";
-import { getDefaultStoreId } from "@/lib/store";
+import { getCurrentStoreId } from "@/lib/store";
 import { deleteSlipBlob } from "@/lib/slip";
 import type { Courier, OrderFormInput } from "@/types/order";
 
@@ -16,11 +24,27 @@ export async function loginAction(
   _prev: { error?: string },
   formData: FormData
 ): Promise<{ error?: string }> {
-  const pw = String(formData.get("password") ?? "");
-  if (!checkPassword(pw)) {
-    return { error: "รหัสผ่านไม่ถูกต้อง" };
+  const ip = await clientIp();
+  const limit = checkRateLimit(ip);
+  if (!limit.ok) {
+    return { error: `พยายามเข้าสู่ระบบบ่อยเกินไป ลองใหม่ใน ${limit.retryAfterSec} วินาที` };
   }
-  await startSession();
+
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const pw = String(formData.get("password") ?? "");
+
+  const user = email
+    ? await prisma.user.findUnique({ where: { email } })
+    : null;
+  // verify เสมอ (แม้ไม่เจอ user) เพื่อลด timing leak ว่า email มีอยู่ไหม
+  const ok = user ? await verifyPassword(pw, user.passwordHash) : false;
+  if (!user || !ok) {
+    recordFailedAttempt(ip);
+    return { error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" };
+  }
+
+  clearAttempts(ip);
+  await startSession({ id: user.id, storeId: user.storeId, role: user.role });
   redirect("/admin");
 }
 
@@ -48,6 +72,12 @@ async function genUniqueOrderNo(storeId: string): Promise<string> {
     });
     if (!exists) return orderNo;
   }
+}
+
+/** หาออเดอร์ตาม id เฉพาะของร้านปัจจุบัน (กันแก้/ลบข้ามร้าน) — null ถ้าไม่ใช่ของร้านนี้ */
+async function findOwnedOrder(id: string) {
+  const storeId = await getCurrentStoreId();
+  return prisma.order.findFirst({ where: { id, storeId } });
 }
 
 /** แปลง input ฝั่ง form → ฟิลด์ของ DB (sanitize ค่าตัวเลข/ค่าว่าง) */
@@ -88,7 +118,7 @@ function cleanItems(items: OrderFormInput["items"]) {
 }
 
 export async function createOrder(input: OrderFormInput): Promise<void> {
-  const storeId = await getDefaultStoreId();
+  const storeId = await getCurrentStoreId();
   const token = await genUniqueToken();
   const orderNo = await genUniqueOrderNo(storeId);
 
@@ -107,7 +137,7 @@ export async function createOrder(input: OrderFormInput): Promise<void> {
 }
 
 export async function updateOrder(id: string, input: OrderFormInput): Promise<void> {
-  const order = await prisma.order.findUnique({ where: { id } });
+  const order = await findOwnedOrder(id);
   if (!order) throw new Error("ไม่พบออเดอร์");
 
   // อัปเดตฟิลด์ + แทนที่รายการสินค้าทั้งหมด (ลบเก่า → สร้างใหม่) ใน transaction เดียว
@@ -129,7 +159,7 @@ export async function updateOrder(id: string, input: OrderFormInput): Promise<vo
 
 /** ร้านตรวจสลิป: approve → ชำระแล้ว, reject → กลับเป็นยังไม่ชำระ + ลบสลิป */
 export async function verifyPayment(id: string, approve: boolean): Promise<void> {
-  const order = await prisma.order.findUnique({ where: { id } });
+  const order = await findOwnedOrder(id);
   if (!order) return;
   if (!approve) await deleteSlipBlob(order.paymentSlipUrl);
   await prisma.order.update({
@@ -153,13 +183,13 @@ export async function verifyPayment(id: string, approve: boolean): Promise<void>
 export async function createProduct(name: string, price: number): Promise<{ error?: string }> {
   const n = name.trim();
   if (!n) return { error: "กรุณากรอกชื่อสินค้า" };
-  const storeId = await getDefaultStoreId();
+  const storeId = await getCurrentStoreId();
   await prisma.product.create({ data: { name: n, price: Number(price) || 0, storeId } });
   revalidatePath("/admin/products");
   return {};
 }
 
-/** แก้ไขสินค้าในแคตตาล็อก */
+/** แก้ไขสินค้าในแคตตาล็อก (เฉพาะของร้านปัจจุบัน) */
 export async function updateProduct(
   id: string,
   name: string,
@@ -167,14 +197,20 @@ export async function updateProduct(
 ): Promise<{ error?: string }> {
   const n = name.trim();
   if (!n) return { error: "กรุณากรอกชื่อสินค้า" };
-  await prisma.product.update({ where: { id }, data: { name: n, price: Number(price) || 0 } });
+  const storeId = await getCurrentStoreId();
+  const res = await prisma.product.updateMany({
+    where: { id, storeId },
+    data: { name: n, price: Number(price) || 0 },
+  });
+  if (res.count === 0) return { error: "ไม่พบสินค้า" };
   revalidatePath("/admin/products");
   return {};
 }
 
-/** ลบสินค้าออกจากแคตตาล็อก (ไม่กระทบออเดอร์เก่า — OrderItem แยกกัน) */
+/** ลบสินค้าออกจากแคตตาล็อก เฉพาะของร้านปัจจุบัน (ไม่กระทบออเดอร์เก่า — OrderItem แยกกัน) */
 export async function deleteProduct(id: string): Promise<void> {
-  await prisma.product.delete({ where: { id } }).catch(() => {});
+  const storeId = await getCurrentStoreId();
+  await prisma.product.deleteMany({ where: { id, storeId } });
   revalidatePath("/admin/products");
 }
 
@@ -182,7 +218,7 @@ export async function deleteProduct(id: string): Promise<void> {
 
 /** ร้านยืนยัน/ยกเลิก "จัดส่งสำเร็จ" (ต้องมีเลขพัสดุก่อน) */
 export async function markDelivered(id: string, delivered: boolean): Promise<void> {
-  const order = await prisma.order.findUnique({ where: { id } });
+  const order = await findOwnedOrder(id);
   if (!order) return;
   await prisma.order.update({
     where: { id },
@@ -201,7 +237,7 @@ export async function checkTracking(id: string): Promise<{
   date?: string;
   error?: string;
 }> {
-  const order = await prisma.order.findUnique({ where: { id } });
+  const order = await findOwnedOrder(id);
   if (!order) return { ok: false, error: "ไม่พบออเดอร์" };
   if (!order.trackingCourier || !order.trackingNo) {
     return { ok: false, error: "ออเดอร์นี้ยังไม่มีเลขพัสดุ" };
@@ -230,7 +266,7 @@ export async function checkTracking(id: string): Promise<{
 }
 
 export async function deleteOrder(id: string): Promise<void> {
-  const order = await prisma.order.findUnique({ where: { id } });
+  const order = await findOwnedOrder(id);
   if (!order) return;
   await deleteSlipBlob(order.paymentSlipUrl);
   await prisma.order.delete({ where: { id } }); // items ลบตาม (onDelete: Cascade)

@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { hashPassword } from "../src/lib/password";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -25,6 +26,21 @@ async function main() {
       defaultShippingFee: 0,
     },
   });
+
+  // owner user (ถ้าตั้ง ADMIN_EMAIL + ADMIN_PASSWORD ใน env) — ใช้ login ฝั่ง admin
+  const adminEmail = (process.env.ADMIN_EMAIL ?? "").trim().toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD ?? "";
+  if (adminEmail && adminPassword) {
+    const passwordHash = await hashPassword(adminPassword);
+    await prisma.user.upsert({
+      where: { email: adminEmail },
+      update: { passwordHash, storeId: store.id, role: "owner" },
+      create: { email: adminEmail, passwordHash, storeId: store.id, role: "owner" },
+    });
+    console.log(`  ✓ owner user "${adminEmail}"`);
+  } else {
+    console.log("  ⚠️  ข้าม owner user (ตั้ง ADMIN_EMAIL + ADMIN_PASSWORD แล้วรัน prisma/create-owner.ts)");
+  }
 
   // ล้างออเดอร์ของร้านนี้ก่อน เพื่อให้ seed ซ้ำได้ (idempotent)
   await prisma.order.deleteMany({ where: { storeId: store.id } });

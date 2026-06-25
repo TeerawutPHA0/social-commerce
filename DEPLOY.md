@@ -21,7 +21,12 @@
      DATABASE_URL="<direct-url>" npx tsx prisma/migrate-to-multitenant.ts
      npx prisma db push   # ยืนยันว่า schema sync (ควรขึ้น already in sync)
      ```
-3. ลองรัน: `npm run dev` → เข้า http://localhost:3000/admin (รหัสตาม `ADMIN_PASSWORD` ใน .env)
+3. สร้าง owner user สำหรับ login (Phase 2 — login ด้วย email + password):
+   ```bash
+   ADMIN_EMAIL="me@example.com" ADMIN_PASSWORD="..." npm run db:create-owner
+   ```
+   (ถ้ารัน `db:seed` โดยตั้ง `ADMIN_EMAIL`+`ADMIN_PASSWORD` ใน .env ไว้ ก็จะสร้าง owner ให้เลย)
+4. ลองรัน: `npm run dev` → เข้า http://localhost:3000/admin → login ด้วย `ADMIN_EMAIL` + `ADMIN_PASSWORD`
 
 ## 1.5 สร้าง Vercel Blob store (เก็บรูปสลิป)
 1. Vercel dashboard → **Storage → Create → Blob**
@@ -46,7 +51,8 @@ git push -u origin main
    |--------|-----|
    | `DATABASE_URL` | connection string (Pooled) จาก Neon |
    | `BLOB_READ_WRITE_TOKEN` | เพิ่มอัตโนมัติเมื่อ connect Blob store (ขั้นที่ 1.5) |
-   | `ADMIN_PASSWORD` | รหัสผ่านแอดมิน (ตั้งใหม่ให้ปลอดภัย) |
+   | `ADMIN_EMAIL` | อีเมล owner สำหรับ login (ใช้ตอน bootstrap user) |
+   | `ADMIN_PASSWORD` | รหัสผ่าน owner (ตั้งใหม่ให้ปลอดภัย) |
    | `SESSION_SECRET` | สุ่มยาวๆ เช่น `openssl rand -hex 32` |
    | `THAILANDPOST_API_KEY` | (ออปชัน) ถ้าจะใช้ auto-track ไปรษณีย์ไทย |
    | `FLASH_*` / `JT_*` / `KERRY_*` | (ออปชัน) ถ้ามีบัญชี merchant ของขนส่งนั้น |
@@ -56,7 +62,8 @@ git push -u origin main
 > ⚠️ **อย่าใส่ `prisma db push` ใน build script** — เพราะ Vercel ใช้ `DATABASE_URL` แบบ pooled (PgBouncer) ซึ่ง migration/DDL จะค้างเรื่อง advisory lock. สร้าง/อัปเดต schema ให้รัน `npm run db:push` บนเครื่อง (ใช้ direct connection) แทน
 
 ## 5. เช็คหลัง deploy
-- เข้า `https://<your-app>.vercel.app/admin` → login → สร้างออเดอร์ทดสอบ
+> หลัง deploy ครั้งแรกต้องรัน `npm run db:create-owner` (ชี้ `DATABASE_URL` ไป Neon) เพื่อสร้าง owner user ก่อน login ได้
+- เข้า `https://<your-app>.vercel.app/admin` → login (email + password) → สร้างออเดอร์ทดสอบ
 - เปิดลิงก์บิล → อัปสลิป → ดูว่ารูปขึ้น (เสิร์ฟจาก Vercel Blob โดยตรง)
 - ดูกราฟยอดขาย / ฟิลเตอร์ / จัดการสินค้า
 
@@ -64,6 +71,7 @@ git push -u origin main
 
 ## หมายเหตุ
 - **สลิปเก็บบน Vercel Blob** — `paymentSlipUrl` เก็บ public URL ของรูปตรง ๆ (Blob เติม suffix สุ่มให้ เดา URL ของออเดอร์อื่นไม่ได้) อัป/ลบผ่าน `src/lib/slip.ts`
-- **Multi-tenant**: ทุกออเดอร์/สินค้าผูกกับ `storeId` — ตอนนี้ resolve ร้านผ่าน `src/lib/store.ts` (`getDefaultStoreId`, ร้านเดียว); Phase 2 จะเปลี่ยนเป็นอิง session ของผู้ใช้
+- **Multi-tenant**: ทุกออเดอร์/สินค้าผูกกับ `storeId` — resolve ร้านจาก session ของผู้ใช้ (`src/lib/store.ts` → `getCurrentStoreId`) ทุก query/mutation ฝั่ง admin scope ตาม storeId นี้
+- **Auth (Phase 2)**: login ด้วย email + password (scrypt hash ใน `User`), session เป็น signed cookie ที่ฝัง `userId`+`storeId`; ทุก server action เช็คว่า order/product เป็นของร้านตัวเองก่อนแก้
 - ถ้าแก้ schema ภายหลัง: รัน `npm run db:push` (เครื่อง) หรือปล่อยให้ build บน Vercel push ให้ — ถ้าเป็นการเปลี่ยนที่อาจทำข้อมูลหาย Prisma จะ error กันไว้ (ต้องสั่ง `--accept-data-loss` เอง)
 - อยากได้ migration history เป็นเรื่องเป็นราว ค่อยเปลี่ยนไปใช้ `prisma migrate` ทีหลังได้

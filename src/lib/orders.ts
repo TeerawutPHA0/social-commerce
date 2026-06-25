@@ -1,6 +1,7 @@
 import type { Courier, Order, OrderStatus } from "@/types/order";
 import { ORDER_STATUS_FLOW } from "@/types/order";
 import { prisma } from "@/lib/prisma";
+import { getCurrentStoreId } from "@/lib/store";
 import type { OrderModel as DbOrder, OrderItemModel as DbOrderItem } from "@/generated/prisma/models";
 
 /* ============================================================
@@ -45,31 +46,40 @@ function mapOrder(o: DbOrderWithItems): Order {
   };
 }
 
-/** ดึงออเดอร์จาก token (สำหรับหน้า customer) — คืน null ถ้าไม่พบ */
+/** ดึงออเดอร์จาก token (สำหรับหน้า customer — auth ด้วย token เอง ไม่ scope ร้าน) */
 export async function getOrderByToken(token: string): Promise<Order | null> {
   const o = await prisma.order.findUnique({
-    where: { token },    include: { items: true },
+    where: { token },
+    include: { items: true },
   });
   return o ? mapOrder(o) : null;
 }
 
-/** ดึงออเดอร์จาก id (สำหรับหน้า admin แก้ไข) — คืน DB row ดิบ + items (ไม่รวมไบต์สลิป) */
+/** ดึงออเดอร์จาก id (หน้า admin แก้ไข) — scope เฉพาะร้านของผู้ใช้ปัจจุบัน */
 export async function getOrderById(id: string): Promise<DbOrderWithItems | null> {
-  return prisma.order.findUnique({
-    where: { id },    include: { items: true },
+  const storeId = await getCurrentStoreId();
+  return prisma.order.findFirst({
+    where: { id, storeId },
+    include: { items: true },
   });
 }
 
-/** รายการออเดอร์ทั้งหมด (ใหม่สุดก่อน) สำหรับ admin */
+/** รายการออเดอร์ของร้านปัจจุบัน (ใหม่สุดก่อน) สำหรับ admin */
 export async function listOrders(): Promise<DbOrderWithItems[]> {
-  return prisma.order.findMany({    include: { items: true },
+  const storeId = await getCurrentStoreId();
+  return prisma.order.findMany({
+    where: { storeId },
+    include: { items: true },
     orderBy: { createdAt: "desc" },
   });
 }
 
-/** สถิติยอดขายสำหรับ admin dashboard (นับตาม flow step ที่ derived) */
+/** สถิติยอดขายของร้านปัจจุบัน (นับตาม flow step ที่ derived) */
 export async function getStats() {
-  const orders = await prisma.order.findMany({    include: { items: true },
+  const storeId = await getCurrentStoreId();
+  const orders = await prisma.order.findMany({
+    where: { storeId },
+    include: { items: true },
   });
 
   const byStep: Record<FlowStep, number> = {
@@ -103,8 +113,10 @@ const TH_MONTHS_SHORT = [
 
 /** ยอดขายรายเดือนย้อนหลัง N เดือน (นับเฉพาะออเดอร์ที่ชำระแล้ว, ใช้วันที่โอนเงิน) */
 export async function getMonthlySales(monthsBack = 6): Promise<MonthlySales[]> {
+  const storeId = await getCurrentStoreId();
   const orders = await prisma.order.findMany({
-    where: { paymentStatus: "paid" },    include: { items: true },
+    where: { storeId, paymentStatus: "paid" },
+    include: { items: true },
   });
 
   // เตรียม bucket ของแต่ละเดือน (เก่า → ใหม่)
