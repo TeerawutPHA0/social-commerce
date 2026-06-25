@@ -1,4 +1,4 @@
-// Prisma schema — Social Commerce OMS
+// Prisma schema — Social Commerce OMS (multi-tenant)
 // ดู docs: https://pris.ly/d/prisma-schema
 
 generator client {
@@ -10,14 +10,62 @@ datasource db {
   provider = "postgresql"
 }
 
+/// ร้านค้า 1 ร้าน = 1 tenant — ออเดอร์/สินค้า/ผู้ใช้ทั้งหมดผูกกับร้านนี้
+model Store {
+  id   String @id @default(cuid())
+  /// ใช้ทำ URL/subdomain ภายหลัง เช่น puffiepiece
+  slug String @unique
+  name String
+  logo String @default("/logo.jpg")
+
+  /// ข้อมูลรับเงิน (ย้ายมาจาก src/lib/payment.ts — Phase 3 จะทำ UI แก้)
+  payAccountName     String  @default("")
+  /// [{ label, value, note? }] — บัญชี/พร้อมเพย์/วอลเล็ต
+  payMethods         Json    @default("[]")
+  /// path/URL รูป QR (null = ไม่มี)
+  payQrImage         String?
+  payWarning         String?
+  defaultShippingFee Float   @default(0)
+
+  /// API key ของขนส่งต่อร้าน (ยังไม่เข้ารหัส — Phase 3 ค่อยทำ) | null = ใช้ค่า env กลาง
+  courierConfig Json?
+
+  users    User[]
+  orders   Order[]
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// ผู้ใช้แอดมินของร้าน (Phase 2 จะรื้อ auth มาใช้ตารางนี้แทนรหัสเดียวใน .env)
+model User {
+  id           String @id @default(cuid())
+  email        String @unique
+  passwordHash String
+  /// owner | staff
+  role         String @default("owner")
+
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  storeId String
+
+  createdAt DateTime @default(now())
+
+  @@index([storeId])
+}
+
 /// ออเดอร์ 1 รายการ (ตรงกับ type Order ใน src/types/order.ts)
 model Order {
   id      String @id @default(cuid())
-  /// token ลับใน URL เช่น order_9b1a2c3f
+  /// token ลับใน URL เช่น order_9b1a2c3f (ยังคง unique ทั้งระบบ — เป็น secret link)
   token   String @unique
-  /// เลขที่ใบสั่งซื้อที่ลูกค้าเห็น เช่น IQ21
-  orderNo String @unique
+  /// เลขที่ใบสั่งซื้อที่ลูกค้าเห็น เช่น IQ21 — unique "ต่อร้าน" (ดู @@unique ด้านล่าง)
+  orderNo String
 
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  storeId String
+
+  /// snapshot ชื่อ/โลโก้ร้าน ณ ตอนสร้างบิล (กันแบรนด์เปลี่ยนแล้วบิลเก่าเพี้ยน)
   storeName String
   storeLogo String @default("/logo.jpg")
 
@@ -40,11 +88,8 @@ model Order {
   paymentStatus            String    @default("unpaid")
   paymentTransferredAmount Float     @default(0)
   paymentTransferredAt     DateTime?
-  /// URL สำหรับแสดงสลิป = /api/slip/<token> (null = ยังไม่อัพ)
+  /// URL รูปสลิปบน Vercel Blob (null = ยังไม่อัพ)
   paymentSlipUrl           String?
-  /// ไบต์รูปสลิป เก็บใน DB โดยตรง (Vercel เขียนไฟล์ไม่ได้) + ชนิดไฟล์
-  paymentSlipData          Bytes?
-  paymentSlipMime          String?
 
   /// thailand-post | kerry | flash | jt (null = ยังไม่มีเลขพัสดุ)
   trackingCourier String?
@@ -59,17 +104,22 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([status])
+  @@unique([storeId, orderNo])
+  @@index([storeId, status])
 }
 
 /// แคตตาล็อกสินค้าที่ร้านบันทึกไว้ (ไว้เลือกตอนสร้างบิล) — แยกจาก OrderItem
 model Product {
-  id        String   @id @default(cuid())
-  name      String
+  id   String @id @default(cuid())
+  name String
+
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  storeId String
+
   price     Float    @default(0)
   createdAt DateTime @default(now())
 
-  @@index([name])
+  @@index([storeId, name])
 }
 
 /// รายการสินค้าในออเดอร์

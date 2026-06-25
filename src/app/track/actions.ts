@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { orderTotal } from "@/lib/orders";
+import { validateSlip, uploadSlipBlob, deleteSlipBlob } from "@/lib/slip";
 
 /* Server actions สาธารณะสำหรับลูกค้า (ไม่ต้อง login — อ้างอิงด้วย token) */
 
@@ -41,21 +42,22 @@ export async function submitAddress(
 }
 
 /** ลูกค้าอัพโหลดสลิป → สถานะการชำระเงิน = รอตรวจสอบ (pending) */
-export async function uploadSlip(formData: FormData): Promise<void> {
+export async function uploadSlip(formData: FormData): Promise<{ error?: string }> {
   const token = String(formData.get("token") ?? "");
-  const file = formData.get("slip") as File | null;
-  if (!token || !file || file.size === 0) return;
+  const valid = validateSlip(formData.get("slip") as File | null);
+  if (!valid.ok) return { error: valid.error };
+  if (!token) return { error: "ไม่พบออเดอร์" };
 
   const order = await prisma.order.findUnique({
     where: { token },
-    omit: { paymentSlipData: true },
     include: { items: true },
   });
-  if (!order) return;
+  if (!order) return { error: "ไม่พบออเดอร์" };
 
-  // เก็บไบต์รูปลง DB โดยตรง (Vercel serverless เขียนไฟล์ลง disk ไม่ได้)
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const mime = file.type || "image/jpeg";
+  // อัพรูปขึ้น Vercel Blob (Vercel serverless เขียนไฟล์ลง disk ไม่ได้)
+  const slipUrl = await uploadSlipBlob(token, valid.file);
+  // ลบสลิปเก่า (ถ้ามี) ออกจาก Blob กันไฟล์ค้าง
+  await deleteSlipBlob(order.paymentSlipUrl);
 
   // ยอดที่ลูกค้าต้องชำระรอบนี้: มัดจำ = depositAmount, จ่ายเต็ม = ยอดรวม
   const total = orderTotal({ items: order.items, shippingFee: order.shippingFee });
@@ -64,10 +66,7 @@ export async function uploadSlip(formData: FormData): Promise<void> {
   await prisma.order.update({
     where: { token },
     data: {
-      paymentSlipData: buffer,
-      paymentSlipMime: mime,
-      // ใส่ ?v=timestamp กัน browser cache รูปเก่าตอนอัพสลิปใหม่
-      paymentSlipUrl: `/api/slip/${token}?v=${Date.now()}`,
+      paymentSlipUrl: slipUrl,
       paymentStatus: "pending",
       paymentTransferredAmount: amount,
       paymentTransferredAt: new Date(),
@@ -76,4 +75,5 @@ export async function uploadSlip(formData: FormData): Promise<void> {
 
   revalidatePath(`/track/${token}`);
   revalidatePath("/admin");
+  return {};
 }

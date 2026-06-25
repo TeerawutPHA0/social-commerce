@@ -67,18 +67,21 @@ export function PaymentSection({
   slipUrl: string | null;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
 
   function submitSlip() {
     const file = fileRef.current?.files?.[0];
     if (!file) return;
+    setError(null);
     startTransition(async () => {
       const compressed = await compressImage(file);
       const fd = new FormData();
       fd.set("token", token);
       fd.set("slip", compressed);
-      await uploadSlip(fd);
+      const res = await uploadSlip(fd);
+      if (res?.error) setError(res.error);
     });
   }
 
@@ -169,6 +172,7 @@ export function PaymentSection({
             className="max-h-56 w-auto self-center rounded-xl border border-pinksoft object-contain"
           />
         )}
+        {error && <p className="text-center text-xs text-red-500">{error}</p>}
         <button
           type="button"
           onClick={submitSlip}

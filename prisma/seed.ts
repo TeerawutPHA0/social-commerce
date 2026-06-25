@@ -7,15 +7,33 @@ const prisma = new PrismaClient({ adapter });
 
 /** ข้อมูลตัวอย่าง (ย้ายมาจาก mock เดิม) — ร้าน puffiepiece */
 async function main() {
-  // ล้างของเดิมก่อน เพื่อให้ seed ซ้ำได้ (idempotent)
-  await prisma.orderItem.deleteMany();
-  await prisma.order.deleteMany();
+  // ร้านเริ่มต้น (idempotent ด้วย upsert ตาม slug) — ข้อมูลรับเงินมาจาก src/lib/payment.ts เดิม
+  const store = await prisma.store.upsert({
+    where: { slug: "puffiepiece" },
+    update: {},
+    create: {
+      slug: "puffiepiece",
+      name: "puffiepiece",
+      logo: "/logo.jpg",
+      payAccountName: "ณัฐวิภา ชะลาลัย",
+      payMethods: [
+        { label: "kbank (กสิกร)", value: "069-2-94362-7" },
+        { label: "true wallet", value: "095-886-5714", note: "ไม่มีพร้อมเพย์นะคะ" },
+      ],
+      payQrImage: "/qrcode.jpg",
+      payWarning: "รบกวนเช็คเลขก่อนโอนนะคะ",
+      defaultShippingFee: 0,
+    },
+  });
 
-  const store = { storeName: "puffiepiece", storeLogo: "/logo.jpg" };
+  // ล้างออเดอร์ของร้านนี้ก่อน เพื่อให้ seed ซ้ำได้ (idempotent)
+  await prisma.order.deleteMany({ where: { storeId: store.id } });
+
+  const base = { storeId: store.id, storeName: store.name, storeLogo: store.logo };
 
   await prisma.order.create({
     data: {
-      ...store,
+      ...base,
       token: "order_9b1a2c3f",
       orderNo: "PF2901",
       createdAt: new Date("2026-05-29T14:35:00+07:00"),
@@ -40,7 +58,7 @@ async function main() {
 
   await prisma.order.create({
     data: {
-      ...store,
+      ...base,
       token: "order_7d4e5f6a",
       orderNo: "PF1508",
       createdAt: new Date("2026-05-08T21:31:00+07:00"),
@@ -67,7 +85,7 @@ async function main() {
 
   await prisma.order.create({
     data: {
-      ...store,
+      ...base,
       token: "order_delivered_demo",
       orderNo: "PF0420",
       createdAt: new Date("2026-04-20T10:05:00+07:00"),
@@ -91,7 +109,7 @@ async function main() {
   // ออเดอร์ใหม่ล่าสุด: ที่อยู่ว่าง + ยังไม่จ่าย → โชว์ flow เต็ม (กรอกที่อยู่ → ชำระเงิน)
   await prisma.order.create({
     data: {
-      ...store,
+      ...base,
       token: "order_new_demo",
       orderNo: "PF6014",
       createdAt: new Date(),
@@ -112,8 +130,8 @@ async function main() {
     },
   });
 
-  const count = await prisma.order.count();
-  console.log(`✅ Seeded ${count} orders`);
+  const count = await prisma.order.count({ where: { storeId: store.id } });
+  console.log(`✅ Seeded store "${store.slug}" + ${count} orders`);
 }
 
 main()

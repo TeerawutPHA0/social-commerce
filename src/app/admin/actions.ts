@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { checkPassword, startSession, endSession } from "@/lib/auth";
 import { getTrackingStatus } from "@/lib/couriers";
+import { getDefaultStoreId } from "@/lib/store";
+import { deleteSlipBlob } from "@/lib/slip";
 import type { Courier, OrderFormInput } from "@/types/order";
 
 /* ===================== Auth actions ===================== */
@@ -37,11 +39,13 @@ async function genUniqueToken(): Promise<string> {
   }
 }
 
-async function genUniqueOrderNo(): Promise<string> {
+async function genUniqueOrderNo(storeId: string): Promise<string> {
   for (;;) {
     const n = Math.floor(Math.random() * 9000) + 1000; // 1000-9999
     const orderNo = `PF${n}`;
-    const exists = await prisma.order.findUnique({ where: { orderNo } });
+    const exists = await prisma.order.findUnique({
+      where: { storeId_orderNo: { storeId, orderNo } },
+    });
     if (!exists) return orderNo;
   }
 }
@@ -84,13 +88,15 @@ function cleanItems(items: OrderFormInput["items"]) {
 }
 
 export async function createOrder(input: OrderFormInput): Promise<void> {
+  const storeId = await getDefaultStoreId();
   const token = await genUniqueToken();
-  const orderNo = await genUniqueOrderNo();
+  const orderNo = await genUniqueOrderNo(storeId);
 
   await prisma.order.create({
     data: {
       token,
       orderNo,
+      storeId,
       ...toData(input),
       items: { create: cleanItems(input.items) },
     },
@@ -101,7 +107,7 @@ export async function createOrder(input: OrderFormInput): Promise<void> {
 }
 
 export async function updateOrder(id: string, input: OrderFormInput): Promise<void> {
-  const order = await prisma.order.findUnique({ where: { id }, omit: { paymentSlipData: true } });
+  const order = await prisma.order.findUnique({ where: { id } });
   if (!order) throw new Error("ไม่พบออเดอร์");
 
   // อัปเดตฟิลด์ + แทนที่รายการสินค้าทั้งหมด (ลบเก่า → สร้างใหม่) ใน transaction เดียว
@@ -123,8 +129,9 @@ export async function updateOrder(id: string, input: OrderFormInput): Promise<vo
 
 /** ร้านตรวจสลิป: approve → ชำระแล้ว, reject → กลับเป็นยังไม่ชำระ + ลบสลิป */
 export async function verifyPayment(id: string, approve: boolean): Promise<void> {
-  const order = await prisma.order.findUnique({ where: { id }, omit: { paymentSlipData: true } });
+  const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return;
+  if (!approve) await deleteSlipBlob(order.paymentSlipUrl);
   await prisma.order.update({
     where: { id },
     data: approve
@@ -132,8 +139,6 @@ export async function verifyPayment(id: string, approve: boolean): Promise<void>
       : {
           paymentStatus: "unpaid",
           paymentSlipUrl: null,
-          paymentSlipData: null,
-          paymentSlipMime: null,
           paymentTransferredAt: null,
         },
   });
@@ -148,7 +153,8 @@ export async function verifyPayment(id: string, approve: boolean): Promise<void>
 export async function createProduct(name: string, price: number): Promise<{ error?: string }> {
   const n = name.trim();
   if (!n) return { error: "กรุณากรอกชื่อสินค้า" };
-  await prisma.product.create({ data: { name: n, price: Number(price) || 0 } });
+  const storeId = await getDefaultStoreId();
+  await prisma.product.create({ data: { name: n, price: Number(price) || 0, storeId } });
   revalidatePath("/admin/products");
   return {};
 }
@@ -176,7 +182,7 @@ export async function deleteProduct(id: string): Promise<void> {
 
 /** ร้านยืนยัน/ยกเลิก "จัดส่งสำเร็จ" (ต้องมีเลขพัสดุก่อน) */
 export async function markDelivered(id: string, delivered: boolean): Promise<void> {
-  const order = await prisma.order.findUnique({ where: { id }, omit: { paymentSlipData: true } });
+  const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return;
   await prisma.order.update({
     where: { id },
@@ -195,7 +201,7 @@ export async function checkTracking(id: string): Promise<{
   date?: string;
   error?: string;
 }> {
-  const order = await prisma.order.findUnique({ where: { id }, omit: { paymentSlipData: true } });
+  const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return { ok: false, error: "ไม่พบออเดอร์" };
   if (!order.trackingCourier || !order.trackingNo) {
     return { ok: false, error: "ออเดอร์นี้ยังไม่มีเลขพัสดุ" };
@@ -224,8 +230,9 @@ export async function checkTracking(id: string): Promise<{
 }
 
 export async function deleteOrder(id: string): Promise<void> {
-  const order = await prisma.order.findUnique({ where: { id }, omit: { paymentSlipData: true } });
+  const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return;
+  await deleteSlipBlob(order.paymentSlipUrl);
   await prisma.order.delete({ where: { id } }); // items ลบตาม (onDelete: Cascade)
   revalidatePath("/admin");
   revalidatePath(`/track/${order.token}`);

@@ -4,13 +4,12 @@ import { prisma } from "@/lib/prisma";
 import type { OrderModel as DbOrder, OrderItemModel as DbOrderItem } from "@/generated/prisma/models";
 
 /* ============================================================
- *  Data access (Prisma / SQLite)
+ *  Data access (Prisma / Postgres)
  *  อ่าน/แปลงข้อมูลจาก DB → type Order ที่ฝั่ง UI ใช้
  *  ส่วน mutation (create/update/delete) อยู่ที่ src/app/admin/actions.ts
  * ============================================================ */
 
-// ไม่รวม paymentSlipData (ไบต์รูปสลิป) — โหลดเฉพาะตอนเสิร์ฟรูปที่ /api/slip
-type DbOrderWithItems = Omit<DbOrder, "paymentSlipData"> & { items: DbOrderItem[] };
+type DbOrderWithItems = DbOrder & { items: DbOrderItem[] };
 
 /** แปลง row จาก DB → Order type ที่ UI ใช้ */
 function mapOrder(o: DbOrderWithItems): Order {
@@ -49,9 +48,7 @@ function mapOrder(o: DbOrderWithItems): Order {
 /** ดึงออเดอร์จาก token (สำหรับหน้า customer) — คืน null ถ้าไม่พบ */
 export async function getOrderByToken(token: string): Promise<Order | null> {
   const o = await prisma.order.findUnique({
-    where: { token },
-    omit: { paymentSlipData: true },
-    include: { items: true },
+    where: { token },    include: { items: true },
   });
   return o ? mapOrder(o) : null;
 }
@@ -59,26 +56,20 @@ export async function getOrderByToken(token: string): Promise<Order | null> {
 /** ดึงออเดอร์จาก id (สำหรับหน้า admin แก้ไข) — คืน DB row ดิบ + items (ไม่รวมไบต์สลิป) */
 export async function getOrderById(id: string): Promise<DbOrderWithItems | null> {
   return prisma.order.findUnique({
-    where: { id },
-    omit: { paymentSlipData: true },
-    include: { items: true },
+    where: { id },    include: { items: true },
   });
 }
 
 /** รายการออเดอร์ทั้งหมด (ใหม่สุดก่อน) สำหรับ admin */
 export async function listOrders(): Promise<DbOrderWithItems[]> {
-  return prisma.order.findMany({
-    omit: { paymentSlipData: true },
-    include: { items: true },
+  return prisma.order.findMany({    include: { items: true },
     orderBy: { createdAt: "desc" },
   });
 }
 
 /** สถิติยอดขายสำหรับ admin dashboard (นับตาม flow step ที่ derived) */
 export async function getStats() {
-  const orders = await prisma.order.findMany({
-    omit: { paymentSlipData: true },
-    include: { items: true },
+  const orders = await prisma.order.findMany({    include: { items: true },
   });
 
   const byStep: Record<FlowStep, number> = {
@@ -113,9 +104,7 @@ const TH_MONTHS_SHORT = [
 /** ยอดขายรายเดือนย้อนหลัง N เดือน (นับเฉพาะออเดอร์ที่ชำระแล้ว, ใช้วันที่โอนเงิน) */
 export async function getMonthlySales(monthsBack = 6): Promise<MonthlySales[]> {
   const orders = await prisma.order.findMany({
-    where: { paymentStatus: "paid" },
-    omit: { paymentSlipData: true },
-    include: { items: true },
+    where: { paymentStatus: "paid" },    include: { items: true },
   });
 
   // เตรียม bucket ของแต่ละเดือน (เก่า → ใหม่)
