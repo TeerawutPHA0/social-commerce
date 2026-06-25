@@ -1,4 +1,4 @@
-import type { Courier, Order, OrderStatus } from "@/types/order";
+import type { Courier, Order, OrderStatus, PaymentMethod } from "@/types/order";
 import { ORDER_STATUS_FLOW } from "@/types/order";
 import { prisma } from "@/lib/prisma";
 import { getCurrentStoreId } from "@/lib/store";
@@ -12,12 +12,30 @@ import type { OrderModel as DbOrder, OrderItemModel as DbOrderItem } from "@/gen
 
 type DbOrderWithItems = DbOrder & { items: DbOrderItem[] };
 
+// ฟิลด์รับเงินของร้าน (ดึงสดผ่าน relation) ที่หน้า customer ต้องใช้
+type StorePayFields = {
+  payAccountName: string;
+  payMethods: unknown;
+  payQrImage: string | null;
+  payWarning: string | null;
+};
+type DbOrderForCustomer = DbOrderWithItems & { store: StorePayFields };
+
 /** แปลง row จาก DB → Order type ที่ UI ใช้ */
-function mapOrder(o: DbOrderWithItems): Order {
+function mapOrder(o: DbOrderForCustomer): Order {
   return {
     token: o.token,
     orderNo: o.orderNo,
-    store: { name: o.storeName, logo: o.storeLogo },
+    store: {
+      name: o.storeName,
+      logo: o.storeLogo,
+      pay: {
+        accountName: o.store.payAccountName,
+        methods: (o.store.payMethods as PaymentMethod[] | null) ?? [],
+        qrImage: o.store.payQrImage,
+        warning: o.store.payWarning,
+      },
+    },
     createdAt: o.createdAt.toISOString(),
     status: o.status as OrderStatus,
     items: o.items.map((it) => ({ name: it.name, qty: it.qty, price: it.price })),
@@ -50,7 +68,17 @@ function mapOrder(o: DbOrderWithItems): Order {
 export async function getOrderByToken(token: string): Promise<Order | null> {
   const o = await prisma.order.findUnique({
     where: { token },
-    include: { items: true },
+    include: {
+      items: true,
+      store: {
+        select: {
+          payAccountName: true,
+          payMethods: true,
+          payQrImage: true,
+          payWarning: true,
+        },
+      },
+    },
   });
   return o ? mapOrder(o) : null;
 }

@@ -25,6 +25,18 @@ export type PaymentType = "full" | "deposit";
 /** ค่าขนส่งที่รองรับ + ใช้สร้างลิงก์ติดตามพัสดุ */
 export type Courier = "thailand-post" | "kerry" | "flash" | "jt";
 
+/** ช่องทางรับเงิน 1 รายการ (บัญชี/พร้อมเพย์/วอลเล็ต) */
+export type PaymentMethod = { label: string; value: string; note?: string };
+
+/** ข้อมูลรับเงินของร้าน (ดึงจาก Store ปัจจุบัน — แก้ได้ที่ /admin/settings) */
+export interface StorePaymentInfo {
+  accountName: string;
+  methods: PaymentMethod[];
+  /** path/URL รูป QR (null = ไม่มี) */
+  qrImage: string | null;
+  warning: string | null;
+}
+
 export interface OrderItem {
   name: string;
   qty: number;
@@ -41,6 +53,8 @@ export interface Order {
     name: string;
     /** path รูปโลโก้ร้าน (อยู่ใน /public) */
     logo: string;
+    /** ข้อมูลรับเงิน (ดึงสดจาก Store ปัจจุบัน — ไม่ใช่ snapshot) */
+    pay: StorePaymentInfo;
   };
   /** วันที่สั่งซื้อ (ISO 8601) */
   createdAt: string;
