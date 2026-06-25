@@ -16,7 +16,8 @@ import {
 import { getTrackingStatus } from "@/lib/couriers";
 import { getCurrentStoreId } from "@/lib/store";
 import { deleteSlipBlob } from "@/lib/slip";
-import type { Courier, OrderFormInput } from "@/types/order";
+import type { Courier, OrderFormInput, PaymentMethod } from "@/types/order";
+import type { StoreSettings } from "@/lib/settings";
 
 /* ===================== Auth actions ===================== */
 
@@ -212,6 +213,42 @@ export async function deleteProduct(id: string): Promise<void> {
   const storeId = await getCurrentStoreId();
   await prisma.product.deleteMany({ where: { id, storeId } });
   revalidatePath("/admin/products");
+}
+
+/* ===================== Store settings ===================== */
+
+/** บันทึกค่าตั้งร้าน (ชื่อ/โลโก้/ค่าส่ง/ข้อมูลรับเงิน) — เฉพาะร้านปัจจุบัน */
+export async function updateStoreSettings(input: StoreSettings): Promise<{ error?: string }> {
+  const storeId = await getCurrentStoreId();
+
+  const name = input.name.trim();
+  if (!name) return { error: "กรุณากรอกชื่อร้าน" };
+
+  // เก็บเฉพาะช่องทางที่มีทั้งชื่อและเลขบัญชี (ไม่ใส่ key note ถ้าว่าง — กัน undefined ใน JSON)
+  const methods: PaymentMethod[] = (input.payMethods ?? [])
+    .map((m) => {
+      const label = m.label.trim();
+      const value = m.value.trim();
+      const note = m.note?.trim();
+      return note ? { label, value, note } : { label, value };
+    })
+    .filter((m) => m.label && m.value);
+
+  await prisma.store.update({
+    where: { id: storeId },
+    data: {
+      name,
+      logo: input.logo.trim() || "/logo.jpg",
+      defaultShippingFee: Math.max(0, Number(input.defaultShippingFee) || 0),
+      payAccountName: input.payAccountName.trim(),
+      payQrImage: input.payQrImage.trim() || null,
+      payWarning: input.payWarning.trim() || null,
+      payMethods: methods,
+    },
+  });
+
+  revalidatePath("/admin/settings");
+  return {};
 }
 
 /* ===================== Delivery ===================== */

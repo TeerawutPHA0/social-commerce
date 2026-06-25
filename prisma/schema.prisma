@@ -18,7 +18,7 @@ model Store {
   name String
   logo String @default("/logo.jpg")
 
-  /// ข้อมูลรับเงิน (ย้ายมาจาก src/lib/payment.ts — Phase 3 จะทำ UI แก้)
+  /// ข้อมูลรับเงิน (แก้ผ่าน UI ที่ /admin/settings)
   payAccountName     String  @default("")
   /// [{ label, value, note? }] — บัญชี/พร้อมเพย์/วอลเล็ต
   payMethods         Json    @default("[]")

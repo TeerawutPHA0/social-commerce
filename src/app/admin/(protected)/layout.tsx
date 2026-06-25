@@ -24,6 +24,12 @@ export default async function AdminLayout({
             >
               สินค้า
             </Link>
+            <Link
+              href="/admin/settings"
+              className="text-sm font-medium text-brown/60 transition hover:text-brown"
+            >
+              ตั้งค่า
+            </Link>
           </div>
           <form action={logoutAction}>
             <button

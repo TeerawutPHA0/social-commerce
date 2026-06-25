@@ -1,10 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { useRef, useState, useTransition } from "react";
-import type { PaymentStatus } from "@/types/order";
+import type { PaymentStatus, StorePaymentInfo } from "@/types/order";
 import { uploadSlip } from "@/app/track/actions";
-import { PAYMENT_INFO } from "@/lib/payment";
 import { Card } from "./Card";
 
 /**
@@ -54,6 +52,7 @@ export function PaymentSection({
   totalText,
   remainingText,
   slipUrl,
+  pay,
 }: {
   token: string;
   status: PaymentStatus;
@@ -65,6 +64,8 @@ export function PaymentSection({
   /** ยอดคงเหลือหลังหักมัดจำ */
   remainingText: string;
   slipUrl: string | null;
+  /** ข้อมูลรับเงินของร้าน (จาก settings) */
+  pay: StorePaymentInfo;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -120,32 +121,41 @@ export function PaymentSection({
               ยอดเต็ม ฿{totalText} · คงเหลือ ฿{remainingText} (ชำระภายหลัง/ปลายทาง)
             </p>
           )}
-          <Image
-            src={PAYMENT_INFO.qrImage}
-            alt="QR ชำระเงิน"
-            width={260}
-            height={260}
-            className="rounded-xl border border-pinksoft object-contain"
-          />
+          {pay.qrImage && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={pay.qrImage}
+              alt="QR ชำระเงิน"
+              width={260}
+              height={260}
+              className="rounded-xl border border-pinksoft object-contain"
+            />
+          )}
 
           {/* ข้อมูลบัญชี */}
-          <div className="w-full rounded-xl bg-cream p-3 text-sm">
-            {PAYMENT_INFO.methods.map((m) => (
-              <div key={m.label} className="flex items-baseline justify-between py-1">
-                <span className="text-brown/70">♡ {m.label}</span>
-                <span className="text-right font-semibold text-brown">
-                  {m.value}
-                  {m.note && (
-                    <span className="block text-[11px] font-normal text-pinkdeep">{m.note}</span>
-                  )}
-                </span>
-              </div>
-            ))}
-            <p className="mt-2 border-t border-pinksoft pt-2 text-center font-medium text-brown">
-              💒 {PAYMENT_INFO.accountName}
-            </p>
-          </div>
-          <p className="text-center text-xs text-pinkdeep">🌺 {PAYMENT_INFO.warning}</p>
+          {(pay.methods.length > 0 || pay.accountName) && (
+            <div className="w-full rounded-xl bg-cream p-3 text-sm">
+              {pay.methods.map((m, i) => (
+                <div key={i} className="flex items-baseline justify-between py-1">
+                  <span className="text-brown/70">♡ {m.label}</span>
+                  <span className="text-right font-semibold text-brown">
+                    {m.value}
+                    {m.note && (
+                      <span className="block text-[11px] font-normal text-pinkdeep">{m.note}</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+              {pay.accountName && (
+                <p className="mt-2 border-t border-pinksoft pt-2 text-center font-medium text-brown">
+                  💒 {pay.accountName}
+                </p>
+              )}
+            </div>
+          )}
+          {pay.warning && (
+            <p className="text-center text-xs text-pinkdeep">🌺 {pay.warning}</p>
+          )}
         </div>
       )}
 

@@ -8,7 +8,7 @@ const prisma = new PrismaClient({ adapter });
 
 /** ข้อมูลตัวอย่าง (ย้ายมาจาก mock เดิม) — ร้าน puffiepiece */
 async function main() {
-  // ร้านเริ่มต้น (idempotent ด้วย upsert ตาม slug) — ข้อมูลรับเงินมาจาก src/lib/payment.ts เดิม
+  // ร้านเริ่มต้น (idempotent ด้วย upsert ตาม slug) — ข้อมูลรับเงินแก้ได้ที่ /admin/settings
   const store = await prisma.store.upsert({
     where: { slug: "puffiepiece" },
     update: {},

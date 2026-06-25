@@ -86,6 +86,7 @@ export default async function TrackOrderPage({ params }: Props) {
               totalText={formatTHB(total)}
               remainingText={formatTHB(remaining)}
               slipUrl={order.payment.slipUrl}
+              pay={order.store.pay}
             />
           )}
 
