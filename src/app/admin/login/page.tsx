@@ -14,14 +14,28 @@ export default function LoginPage() {
       </div>
 
       <form action={action} className="w-full rounded-2xl bg-white p-6 shadow-[0_2px_12px_rgba(86,62,50,0.08)]">
-        <label className="block text-sm font-medium text-brown" htmlFor="password">
+        <label className="block text-sm font-medium text-brown" htmlFor="email">
+          อีเมล
+        </label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          autoFocus
+          required
+          className="mt-2 w-full rounded-xl border border-pinksoft bg-cream px-4 py-3 text-brown outline-none focus:border-pink"
+          placeholder="you@example.com"
+        />
+
+        <label className="mt-4 block text-sm font-medium text-brown" htmlFor="password">
           รหัสผ่าน
         </label>
         <input
           id="password"
           name="password"
           type="password"
-          autoFocus
+          autoComplete="current-password"
           required
           className="mt-2 w-full rounded-xl border border-pinksoft bg-cream px-4 py-3 text-brown outline-none focus:border-pink"
           placeholder="••••••••"

@@ -1,27 +1,13 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
+import { requireSession } from "@/lib/auth";
 
 /**
- * Resolve "ร้านปัจจุบัน" สำหรับ mutation/อ่านข้อมูล
+ * storeId ของร้านที่ผู้ใช้ปัจจุบันสังกัด (จาก session)
+ * ใช้ scope ทุก query/mutation ฝั่ง admin ให้เห็นเฉพาะข้อมูลของร้านตัวเอง
  *
- * Phase 1 (single-tenant): คืนร้านเริ่มต้นเพียงร้านเดียว (ตาม DEFAULT_STORE_SLUG
- * หรือร้านที่เก่าสุดในระบบ) เพื่อให้แอปทำงานเหมือนเดิมระหว่างที่ schema พร้อมหลายร้านแล้ว
- *
- * Phase 2 (multi-tenant): จะเปลี่ยนมาอ่าน storeId จาก session ของผู้ใช้ที่ล็อกอินแทน
+ * ⚠️ ห้ามใช้ในบริบทที่ไม่มี session (เช่น customer track, scripts) — จะเด้ง login
  */
-export async function getDefaultStoreId(): Promise<string> {
-  const slug = process.env.DEFAULT_STORE_SLUG;
-  const store = slug
-    ? await prisma.store.findUnique({ where: { slug }, select: { id: true } })
-    : await prisma.store.findFirst({
-        orderBy: { createdAt: "asc" },
-        select: { id: true },
-      });
-
-  if (!store) {
-    throw new Error(
-      "ยังไม่มีร้านในระบบ — รัน migration/seed เพื่อสร้างร้านเริ่มต้นก่อน (ดู prisma/seed.ts)"
-    );
-  }
-  return store.id;
+export async function getCurrentStoreId(): Promise<string> {
+  const session = await requireSession();
+  return session.storeId;
 }

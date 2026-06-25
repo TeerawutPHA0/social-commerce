@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAuthenticated } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { logoutAction } from "../actions";
 
 export default async function AdminLayout({
@@ -8,7 +8,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  if (!(await isAuthenticated())) redirect("/admin/login");
+  if (!(await getSession())) redirect("/admin/login");
 
   return (
     <div className="min-h-screen">
