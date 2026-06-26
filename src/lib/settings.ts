@@ -18,7 +18,7 @@ export type StoreSettings = {
  *  โมเดล 1: 1 deployment = 1 ร้าน → ดึงร้านเดียวด้วย findFirst (fallback ถ้ายังไม่ bootstrap) */
 export async function getStoreBrand(): Promise<{ name: string; logo: string }> {
   const s = await prisma.store.findFirst({ select: { name: true, logo: true } });
-  return { name: s?.name ?? "Social Commerce", logo: s?.logo ?? "/logo.jpg" };
+  return { name: s?.name ?? "Social Commerce", logo: s?.logo ?? "/logo.svg" };
 }
 
 /** โหลดค่าตั้งของร้านปัจจุบัน (สำหรับฟอร์ม settings) */

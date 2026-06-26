@@ -39,7 +39,7 @@ async function main() {
   }
 
   const slug = process.env.STORE_SLUG?.trim() || slugify(name) || "store";
-  const logo = process.env.STORE_LOGO?.trim() || "/logo.jpg";
+  const logo = process.env.STORE_LOGO?.trim() || "/logo.svg";
 
   // สร้าง/อัปเดตร้าน (ตาม slug) — ไม่แตะข้อมูลรับเงิน/ออเดอร์ที่มีอยู่
   const store = await prisma.store.upsert({

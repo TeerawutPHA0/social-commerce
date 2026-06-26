@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { getStoreBrand } from "@/lib/settings";
 
+// ดึงชื่อร้านจาก settings สด ๆ ทุกครั้ง (ไม่ bake ตอน build) — เปลี่ยนชื่อร้านแล้วเห็นทันที
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const brand = await getStoreBrand();
   return (
