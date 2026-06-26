@@ -11,7 +11,10 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:migrate-mt": "tsx prisma/migrate-to-multitenant.ts",
-    "db:create-owner": "tsx prisma/create-owner.ts"
+    "db:create-owner": "tsx prisma/create-owner.ts",
+    "bootstrap": "tsx prisma/bootstrap.ts",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
@@ -26,6 +29,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",

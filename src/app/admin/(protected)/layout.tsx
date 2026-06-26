@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import { getStoreBrand } from "@/lib/settings";
 import { logoutAction } from "../actions";
 
 export default async function AdminLayout({
@@ -9,6 +10,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   if (!(await getSession())) redirect("/admin/login");
+  const brand = await getStoreBrand();
 
   return (
     <div className="min-h-screen">
@@ -16,7 +18,7 @@ export default async function AdminLayout({
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-4">
             <Link href="/admin" className="text-base font-bold text-brown">
-              🧸 puffiepiece · Admin
+              {brand.name} · Admin
             </Link>
             <Link
               href="/admin/products"

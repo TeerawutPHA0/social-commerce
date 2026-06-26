@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { getStoreBrand } from "@/lib/settings";
 
-export default function Home() {
+export default async function Home() {
+  const brand = await getStoreBrand();
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-6 px-6 py-16 text-center">
       <span className="rounded-full bg-pinksoft px-3 py-1 text-xs font-medium text-brown">
-        puffiepiece
+        {brand.name}
       </span>
 
       <h1 className="text-3xl font-bold tracking-tight text-brown">Social Commerce</h1>
