@@ -14,6 +14,13 @@ export type StoreSettings = {
   payMethods: PaymentMethod[];
 };
 
+/** ชื่อ/โลโก้ร้านสำหรับหน้า public ที่ไม่มี session (login, หน้าแรก, หัวแอดมิน)
+ *  โมเดล 1: 1 deployment = 1 ร้าน → ดึงร้านเดียวด้วย findFirst (fallback ถ้ายังไม่ bootstrap) */
+export async function getStoreBrand(): Promise<{ name: string; logo: string }> {
+  const s = await prisma.store.findFirst({ select: { name: true, logo: true } });
+  return { name: s?.name ?? "Social Commerce", logo: s?.logo ?? "/logo.jpg" };
+}
+
 /** โหลดค่าตั้งของร้านปัจจุบัน (สำหรับฟอร์ม settings) */
 export async function getStoreSettings(): Promise<StoreSettings> {
   const storeId = await getCurrentStoreId();

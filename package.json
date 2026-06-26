@@ -12,6 +12,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:migrate-mt": "tsx prisma/migrate-to-multitenant.ts",
     "db:create-owner": "tsx prisma/create-owner.ts",
+    "bootstrap": "tsx prisma/bootstrap.ts",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui"
   },

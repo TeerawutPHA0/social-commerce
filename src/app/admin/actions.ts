@@ -81,13 +81,22 @@ async function findOwnedOrder(id: string) {
   return prisma.order.findFirst({ where: { id, storeId } });
 }
 
-/** แปลง input ฝั่ง form → ฟิลด์ของ DB (sanitize ค่าตัวเลข/ค่าว่าง) */
-function toData(input: OrderFormInput) {
+/** ชื่อ/โลโก้ของร้าน — ใช้เป็น snapshot สำรองตอนสร้าง/แก้ออเดอร์ */
+async function storeBrand(storeId: string): Promise<{ name: string; logo: string }> {
+  return prisma.store.findUniqueOrThrow({
+    where: { id: storeId },
+    select: { name: true, logo: true },
+  });
+}
+
+/** แปลง input ฝั่ง form → ฟิลด์ของ DB (sanitize ค่าตัวเลข/ค่าว่าง)
+ *  brand = ชื่อ/โลโก้ร้าน ใช้เป็น snapshot สำรองเมื่อ form ไม่ได้ส่งมา (de-hardcode จากแบรนด์เดิม) */
+function toData(input: OrderFormInput, brand: { name: string; logo: string }) {
   const hasTracking = !!input.trackingCourier && !!input.trackingNo?.trim();
   const isDeposit = input.paymentType === "deposit";
   return {
-    storeName: input.storeName.trim() || "puffiepiece",
-    storeLogo: input.storeLogo.trim() || "/logo.jpg",
+    storeName: input.storeName.trim() || brand.name,
+    storeLogo: input.storeLogo.trim() || brand.logo,
     status: input.status,
     shippingFee: Number(input.shippingFee) || 0,
     shippingName: input.shippingName.trim(),
@@ -122,13 +131,14 @@ export async function createOrder(input: OrderFormInput): Promise<void> {
   const storeId = await getCurrentStoreId();
   const token = await genUniqueToken();
   const orderNo = await genUniqueOrderNo(storeId);
+  const brand = await storeBrand(storeId);
 
   await prisma.order.create({
     data: {
       token,
       orderNo,
       storeId,
-      ...toData(input),
+      ...toData(input, brand),
       items: { create: cleanItems(input.items) },
     },
   });
@@ -140,6 +150,7 @@ export async function createOrder(input: OrderFormInput): Promise<void> {
 export async function updateOrder(id: string, input: OrderFormInput): Promise<void> {
   const order = await findOwnedOrder(id);
   if (!order) throw new Error("ไม่พบออเดอร์");
+  const brand = await storeBrand(order.storeId);
 
   // อัปเดตฟิลด์ + แทนที่รายการสินค้าทั้งหมด (ลบเก่า → สร้างใหม่) ใน transaction เดียว
   await prisma.$transaction([
@@ -147,7 +158,7 @@ export async function updateOrder(id: string, input: OrderFormInput): Promise<vo
     prisma.order.update({
       where: { id },
       data: {
-        ...toData(input),
+        ...toData(input, brand),
         items: { create: cleanItems(input.items) },
       },
     }),
