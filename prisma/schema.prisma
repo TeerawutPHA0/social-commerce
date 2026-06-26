@@ -16,7 +16,7 @@ model Store {
   /// ใช้ทำ URL/subdomain ภายหลัง เช่น puffiepiece
   slug String @unique
   name String
-  logo String @default("/logo.jpg")
+  logo String @default("/logo.svg")
 
   /// ข้อมูลรับเงิน (แก้ผ่าน UI ที่ /admin/settings)
   payAccountName     String  @default("")

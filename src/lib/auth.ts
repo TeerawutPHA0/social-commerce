@@ -16,7 +16,15 @@ const COOKIE = "admin_session";
 const MAX_AGE = 60 * 60 * 24 * 7; // 7 วัน (วินาที)
 
 function secret(): string {
-  return process.env.SESSION_SECRET ?? "dev-insecure-secret-change-me";
+  const s = process.env.SESSION_SECRET;
+  if (s) return s;
+  // production: ห้ามใช้ค่า fallback ที่เดาได้ (ไม่งั้น session ปลอมได้) — บังคับให้ตั้ง env
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "SESSION_SECRET ยังไม่ได้ตั้งค่า — ต้องตั้งใน env ก่อน deploy (สุ่ม เช่น `openssl rand -hex 32`)"
+    );
+  }
+  return "dev-insecure-secret-change-me";
 }
 
 /* ===================== Signed session cookie (stateless) ===================== */
