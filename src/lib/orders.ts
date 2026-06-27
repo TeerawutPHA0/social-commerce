@@ -95,44 +95,124 @@ export async function getOrderById(id: string): Promise<DbOrderWithItems | null>
   });
 }
 
-/** รายการออเดอร์ของร้านปัจจุบัน (ใหม่สุดก่อน) สำหรับ admin */
-export async function listOrders(): Promise<DbOrderWithItems[]> {
-  const storeId = await getCurrentStoreId();
-  return prisma.order.findMany({
-    where: { storeId },
-    include: { items: true },
-    orderBy: { createdAt: "desc" },
-  });
+/* ===== กรอง/ค้นหา/แบ่งหน้าฝั่ง DB (Phase 8) =====
+   "flow step" เป็นค่า derived (ดู deriveStep) ไม่ใช่คอลัมน์ — จึง map แต่ละ step
+   เป็นเงื่อนไข where ที่ตรงกับ logic เดียวกัน เพื่อ filter/count ใน DB ได้ ไม่ต้องโหลดทุกแถว
+   หมายเหตุ: ค่าที่อยู่ถูก trim ก่อนเก็บเสมอ → เช็ค "ไม่ว่าง" ด้วย != "" ได้ตรง */
+
+// ดึง type ของ where จาก signature ของ prisma เอง (ไม่ต้อง import Prisma namespace)
+type OrderWhere = NonNullable<NonNullable<Parameters<typeof prisma.order.count>[0]>["where"]>;
+
+const ADDRESS_COMPLETE: OrderWhere = {
+  shippingName: { not: "" },
+  shippingAddress: { not: "" },
+  shippingPhone: { not: "" },
+};
+const PAID: OrderWhere = { paymentStatus: { notIn: ["unpaid", "pending"] } };
+const HAS_TRACKING: OrderWhere = { AND: [{ trackingNo: { not: null } }, { trackingNo: { not: "" } }] };
+const NO_TRACKING: OrderWhere = { OR: [{ trackingNo: null }, { trackingNo: "" }] };
+
+/** เงื่อนไข where ของแต่ละ flow step (ตรงกับ deriveStep) */
+export function stepWhere(step: FlowStep): OrderWhere {
+  switch (step) {
+    case "address":
+      return { OR: [{ shippingName: "" }, { shippingAddress: "" }, { shippingPhone: "" }] };
+    case "payment":
+      return { AND: [ADDRESS_COMPLETE, { paymentStatus: "unpaid" }] };
+    case "verifying":
+      return { AND: [ADDRESS_COMPLETE, { paymentStatus: "pending" }] };
+    case "delivered":
+      return { AND: [ADDRESS_COMPLETE, PAID, { deliveredAt: { not: null } }] };
+    case "to_ship":
+      return { AND: [ADDRESS_COMPLETE, PAID, { deliveredAt: null }, NO_TRACKING] };
+    case "shipping":
+      return { AND: [ADDRESS_COMPLETE, PAID, { deliveredAt: null }, HAS_TRACKING] };
+  }
 }
 
-/** สถิติยอดขายของร้านปัจจุบัน (นับตาม flow step ที่ derived) */
+/** where สำหรับช่องค้นหา (เลขบิล / ชื่อผู้รับ / เบอร์โทร) */
+function searchWhere(q: string): OrderWhere {
+  return {
+    OR: [
+      { orderNo: { contains: q, mode: "insensitive" } },
+      { shippingName: { contains: q, mode: "insensitive" } },
+      { shippingPhone: { contains: q } },
+    ],
+  };
+}
+
+export type ListOrdersOpts = {
+  step?: FlowStep | "all";
+  q?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export type ListOrdersResult = {
+  orders: DbOrderWithItems[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+/** รายการออเดอร์ของร้าน (ใหม่สุดก่อน) — filter/ค้นหา/แบ่งหน้าใน DB */
+export async function listOrders(opts: ListOrdersOpts = {}): Promise<ListOrdersResult> {
+  const storeId = await getCurrentStoreId();
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 20));
+  const page = Math.max(1, opts.page ?? 1);
+
+  const and: OrderWhere[] = [];
+  if (opts.step && opts.step !== "all") and.push(stepWhere(opts.step));
+  const q = opts.q?.trim();
+  if (q) and.push(searchWhere(q));
+  const where: OrderWhere = and.length ? { storeId, AND: and } : { storeId };
+
+  const [orders, total] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      include: { items: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.order.count({ where }),
+  ]);
+  return { orders, total, page, pageSize };
+}
+
+/** รายได้ที่รับจริง (ออเดอร์ชำระแล้ว) — รวมยอดสินค้า+ค่าส่ง, มัดจำนับเฉพาะยอดมัดจำ
+ *  คิดใน DB ด้วย SQL (ไม่ดึงทุกแถวมา loop) */
+async function computeRevenue(storeId: string): Promise<number> {
+  const rows = await prisma.$queryRaw<{ revenue: number }[]>`
+    SELECT COALESCE(SUM(
+      CASE WHEN o."paymentType" = 'deposit' THEN o."depositAmount"
+           ELSE o."shippingFee" + COALESCE(it.total, 0) END
+    ), 0)::float8 AS revenue
+    FROM "Order" o
+    LEFT JOIN (
+      SELECT "orderId", SUM("qty" * "price") AS total
+      FROM "OrderItem" GROUP BY "orderId"
+    ) it ON it."orderId" = o."id"
+    WHERE o."storeId" = ${storeId} AND o."paymentStatus" = 'paid'
+  `;
+  return rows[0]?.revenue ?? 0;
+}
+
+/** สถิติของร้านปัจจุบัน — นับแต่ละ flow step ด้วย count query (ใช้ index) ไม่โหลดทุกแถว */
 export async function getStats() {
   const storeId = await getCurrentStoreId();
-  const orders = await prisma.order.findMany({
-    where: { storeId },
-    include: { items: true },
+  const [totalOrders, revenue, ...stepCounts] = await Promise.all([
+    prisma.order.count({ where: { storeId } }),
+    computeRevenue(storeId),
+    ...FLOW_STEPS.map((s) => prisma.order.count({ where: { storeId, AND: [stepWhere(s)] } })),
+  ]);
+
+  const byStep = {} as Record<FlowStep, number>;
+  FLOW_STEPS.forEach((s, i) => {
+    byStep[s] = stepCounts[i];
   });
 
-  const byStep: Record<FlowStep, number> = {
-    address: 0,
-    payment: 0,
-    verifying: 0,
-    to_ship: 0,
-    shipping: 0,
-    delivered: 0,
-  };
-  let revenue = 0; // เงินที่ได้รับจริงจากออเดอร์ที่ชำระแล้ว (มัดจำ = นับเฉพาะยอดมัดจำ)
-
-  for (const o of orders) {
-    const step = deriveStep(dbAddressComplete(o), o.paymentStatus, !!o.trackingNo, !!o.deliveredAt);
-    byStep[step] += 1;
-    if (o.paymentStatus === "paid") {
-      const total = o.items.reduce((s, it) => s + it.qty * it.price, 0) + o.shippingFee;
-      revenue += o.paymentType === "deposit" ? o.depositAmount : total;
-    }
-  }
-
-  return { totalOrders: orders.length, revenue, byStep };
+  return { totalOrders, revenue, byStep };
 }
 
 export type MonthlySales = { key: string; label: string; revenue: number; orders: number };
@@ -142,39 +222,43 @@ const TH_MONTHS_SHORT = [
   "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค.",
 ];
 
-/** ยอดขายรายเดือนย้อนหลัง N เดือน (นับเฉพาะออเดอร์ที่ชำระแล้ว, ใช้วันที่โอนเงิน) */
+/** ยอดขายรายเดือนย้อนหลัง N เดือน (ชำระแล้ว, ใช้วันที่โอนเงิน) — group ใน DB กรองเฉพาะช่วงที่แสดง */
 export async function getMonthlySales(monthsBack = 6): Promise<MonthlySales[]> {
   const storeId = await getCurrentStoreId();
-  const orders = await prisma.order.findMany({
-    where: { storeId, paymentStatus: "paid" },
-    include: { items: true },
-  });
-
-  // เตรียม bucket ของแต่ละเดือน (เก่า → ใหม่)
   const now = new Date();
+  const rangeStart = new Date(now.getFullYear(), now.getMonth() - (monthsBack - 1), 1);
+
+  const rows = await prisma.$queryRaw<{ ym: string; revenue: number; orders: number }[]>`
+    SELECT to_char(date_trunc('month', COALESCE(o."paymentTransferredAt", o."createdAt")), 'YYYY-MM') AS ym,
+           COALESCE(SUM(
+             CASE WHEN o."paymentType" = 'deposit' THEN o."depositAmount"
+                  ELSE o."shippingFee" + COALESCE(it.total, 0) END
+           ), 0)::float8 AS revenue,
+           COUNT(*)::int AS orders
+    FROM "Order" o
+    LEFT JOIN (
+      SELECT "orderId", SUM("qty" * "price") AS total
+      FROM "OrderItem" GROUP BY "orderId"
+    ) it ON it."orderId" = o."id"
+    WHERE o."storeId" = ${storeId}
+      AND o."paymentStatus" = 'paid'
+      AND COALESCE(o."paymentTransferredAt", o."createdAt") >= ${rangeStart}
+    GROUP BY ym
+  `;
+  const byKey = new Map(rows.map((r) => [r.ym, r]));
+
+  // เตรียม bucket ของแต่ละเดือน (เก่า → ใหม่) แล้วเติมจากผล group
   const buckets: MonthlySales[] = [];
-  const index = new Map<string, MonthlySales>();
   for (let i = monthsBack - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    const b: MonthlySales = {
+    const r = byKey.get(key);
+    buckets.push({
       key,
       label: `${TH_MONTHS_SHORT[d.getMonth()]} ${String((d.getFullYear() + 543) % 100).padStart(2, "0")}`,
-      revenue: 0,
-      orders: 0,
-    };
-    buckets.push(b);
-    index.set(key, b);
-  }
-
-  for (const o of orders) {
-    const date = o.paymentTransferredAt ?? o.createdAt;
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-    const b = index.get(key);
-    if (!b) continue; // อยู่นอกช่วงที่แสดง
-    const total = o.items.reduce((s, it) => s + it.qty * it.price, 0) + o.shippingFee;
-    b.revenue += o.paymentType === "deposit" ? o.depositAmount : total;
-    b.orders += 1;
+      revenue: r?.revenue ?? 0,
+      orders: r?.orders ?? 0,
+    });
   }
 
   return buckets;

@@ -115,6 +115,8 @@ model Order {
 
   @@unique([storeId, orderNo])
   @@index([storeId, status])
+  /// เรียง/แบ่งหน้า "ออเดอร์ล่าสุดของร้าน" + กรองช่วงเดือน (สถิติ) ให้ใช้ index
+  @@index([storeId, createdAt])
 }
 
 /// แคตตาล็อกสินค้าที่ร้านบันทึกไว้ (ไว้เลือกตอนสร้างบิล) — แยกจาก OrderItem

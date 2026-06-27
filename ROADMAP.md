@@ -48,15 +48,17 @@
 
 ---
 
-## Phase 8 — ค้นหา + Pagination + ประสิทธิภาพ 🔴🟠
-> ตอนนี้ `listOrders()` และ `getStats()` ดึง **ทุกออเดอร์เข้า memory** ทุกครั้ง → ร้านที่โตจะช้า/แพง
+## Phase 8 — ค้นหา + Pagination + ประสิทธิภาพ 🔴🟠 ✅ (เสร็จแล้ว)
+> เดิม `listOrders()` และ `getStats()` ดึง **ทุกออเดอร์เข้า memory** ทุกครั้ง → ร้านที่โตจะช้า/แพง
 
-- [ ] ช่องค้นหาในหน้า admin: ตามเลขบิล / ชื่อ / เบอร์โทร
-- [ ] Pagination หรือ infinite scroll (เริ่มที่ 20–50 รายการ/หน้า)
-- [ ] เปลี่ยน `getStats()` ใช้ `prisma.aggregate` / `groupBy` แทนการ loop ใน memory
-- [ ] เปลี่ยน `getMonthlySales()` ให้ query เฉพาะช่วงเดือนที่ต้องใช้ (มี `where` วันที่)
-- [ ] เพิ่ม index ที่จำเป็น (`@@index([storeId, createdAt])` สำหรับเรียง/แบ่งหน้า)
-- **Acceptance:** ทดสอบด้วยข้อมูลจำลอง 1,000 ออเดอร์แล้วหน้า admin โหลดไว · ค้นหาเจอ
+- [x] ช่องค้นหาในหน้า admin: ตามเลขบิล / ชื่อ / เบอร์โทร (GET form, คงค่า filter)
+- [x] Pagination (20 รายการ/หน้า, ก่อนหน้า/ถัดไป, คงค่า filter+ค้นหา)
+- [x] `listOrders()` filter/ค้นหา/แบ่งหน้าใน DB (`stepWhere` map flow step → where) + คืน total
+- [x] `getStats()` ใช้ count query ต่อ step (ขนาน) + revenue ผ่าน raw SQL (ไม่ loop ใน memory)
+- [x] `getMonthlySales()` group + กรองช่วงเดือนใน DB (raw SQL, `where` วันที่)
+- [x] เพิ่ม `@@index([storeId, createdAt])`
+- **Acceptance:** ✅ ทดสอบ seed 1,000 ออเดอร์ — หน้า admin warm load 0.74s, pagination/ค้นหา/filter ทำงาน
+- **ตรวจแล้ว:** stepWhere(DB) == deriveStep(JS) ครบ 6 step + sum==total · revenue SQL==JS (61,650) · tsc/build/e2e ผ่าน
 
 ---
 
