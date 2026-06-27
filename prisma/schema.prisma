@@ -30,6 +30,13 @@ model Store {
   /// API key ของขนส่งต่อร้าน (ยังไม่เข้ารหัส — Phase 3 ค่อยทำ) | null = ใช้ค่า env กลาง
   courierConfig Json?
 
+  /// แจ้งเตือนร้านผ่าน LINE OA (Phase 6) — token/secret เข้ารหัสก่อนเก็บ (ดู lib/crypto.ts)
+  lineChannelToken  String? /// Channel Access Token (long-lived) สำหรับ push/reply
+  lineChannelSecret String? /// Channel Secret สำหรับ verify ลายเซ็น webhook
+  /// userId ของร้าน (ปลายทางรับ push) ที่จับได้จาก webhook ตอนร้านทักแชต OA
+  lineUserId        String?
+  lineNotifyEnabled Boolean @default(false)
+
   users    User[]
   orders   Order[]
   products Product[]

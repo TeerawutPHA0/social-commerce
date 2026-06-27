@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { orderTotal } from "@/lib/orders";
+import { orderTotal, formatTHB } from "@/lib/orders";
 import { validateSlip, uploadSlipBlob, deleteSlipBlob } from "@/lib/slip";
+import { notifyMerchant } from "@/lib/notify";
+import { appOrigin } from "@/lib/url";
 
 /* Server actions สาธารณะสำหรับลูกค้า (ไม่ต้อง login — อ้างอิงด้วย token) */
 
@@ -72,6 +74,14 @@ export async function uploadSlip(formData: FormData): Promise<{ error?: string }
       paymentTransferredAt: new Date(),
     },
   });
+
+  // แจ้งร้านทาง LINE ว่ามีสลิปใหม่รอตรวจ (ห้ามพัง flow ถ้าแจ้งไม่สำเร็จ)
+  const base = await appOrigin();
+  const link = base ? `\n${base}/admin/orders/${order.id}` : "";
+  await notifyMerchant(
+    order.storeId,
+    `💸 มีสลิปใหม่รอตรวจสอบ\nบิล ${order.orderNo} · ${order.shippingName || "ลูกค้า"}\nยอด ฿${formatTHB(amount)}${link}`
+  );
 
   revalidatePath(`/track/${token}`);
   revalidatePath("/admin");

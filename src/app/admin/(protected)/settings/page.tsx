@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { getStoreSettings } from "@/lib/settings";
+import { getStoreSettings, getLineSettings } from "@/lib/settings";
 import { StoreSettingsForm } from "@/components/admin/StoreSettingsForm";
+import { LineSettingsForm } from "@/components/admin/LineSettingsForm";
 
 export default async function SettingsPage() {
-  const settings = await getStoreSettings();
+  const [settings, lineSettings] = await Promise.all([getStoreSettings(), getLineSettings()]);
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
@@ -13,6 +14,7 @@ export default async function SettingsPage() {
         <h1 className="text-lg font-bold text-brown">ตั้งค่าร้าน</h1>
       </div>
       <StoreSettingsForm initial={settings} />
+      <LineSettingsForm initial={lineSettings} />
     </div>
   );
 }

@@ -16,6 +16,8 @@ import {
 import { getTrackingStatus } from "@/lib/couriers";
 import { getCurrentStoreId } from "@/lib/store";
 import { deleteSlipBlob } from "@/lib/slip";
+import { encrypt } from "@/lib/crypto";
+import { deliverToMerchant } from "@/lib/notify";
 import type { Courier, OrderFormInput, PaymentMethod } from "@/types/order";
 import type { StoreSettings } from "@/lib/settings";
 
@@ -260,6 +262,45 @@ export async function updateStoreSettings(input: StoreSettings): Promise<{ error
 
   revalidatePath("/admin/settings");
   return {};
+}
+
+/* ===================== LINE notify (Phase 6) ===================== */
+
+export type LineSettingsInput = {
+  enabled: boolean;
+  /** "" = ไม่เปลี่ยน (เก็บค่าเดิม) — ฟอร์มแสดงเป็นช่องว่างเมื่อมีค่าอยู่แล้ว */
+  channelToken: string;
+  channelSecret: string;
+};
+
+/** บันทึกการตั้งค่า LINE ของร้าน — เข้ารหัส token/secret ก่อนเก็บ (เฉพาะร้านปัจจุบัน) */
+export async function updateLineSettings(
+  input: LineSettingsInput
+): Promise<{ error?: string }> {
+  const storeId = await getCurrentStoreId();
+  const data: {
+    lineNotifyEnabled: boolean;
+    lineChannelToken?: string;
+    lineChannelSecret?: string;
+  } = { lineNotifyEnabled: input.enabled };
+
+  const token = input.channelToken.trim();
+  const secret = input.channelSecret.trim();
+  if (token) data.lineChannelToken = encrypt(token);
+  if (secret) data.lineChannelSecret = encrypt(secret);
+
+  await prisma.store.update({ where: { id: storeId }, data });
+  revalidatePath("/admin/settings");
+  return {};
+}
+
+/** ส่งข้อความทดสอบไปยัง LINE ของร้าน (ปุ่ม "ทดสอบส่ง" ในหน้า settings) */
+export async function sendLineTest(): Promise<{ ok?: boolean; error?: string }> {
+  const storeId = await getCurrentStoreId();
+  return deliverToMerchant(
+    storeId,
+    "🔔 ทดสอบการแจ้งเตือนจากระบบร้านค้า — ถ้าเห็นข้อความนี้แปลว่าเชื่อมต่อสำเร็จแล้ว ✅"
+  );
 }
 
 /* ===================== Delivery ===================== */

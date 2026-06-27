@@ -21,6 +21,35 @@ export async function getStoreBrand(): Promise<{ name: string; logo: string }> {
   return { name: s?.name ?? "Social Commerce", logo: s?.logo ?? "/logo.svg" };
 }
 
+/** สถานะการเชื่อม LINE ของร้าน (ไม่คืนค่าลับ — ใช้แสดงในฟอร์ม settings) */
+export type LineSettingsView = {
+  enabled: boolean;
+  hasToken: boolean;
+  hasSecret: boolean;
+  /** จับ userId ของร้านจาก webhook แล้วหรือยัง (พร้อมรับ push) */
+  connected: boolean;
+};
+
+/** โหลดสถานะ LINE ของร้านปัจจุบัน (เฉพาะ flag — ไม่เปิดเผย token/secret) */
+export async function getLineSettings(): Promise<LineSettingsView> {
+  const storeId = await getCurrentStoreId();
+  const s = await prisma.store.findUniqueOrThrow({
+    where: { id: storeId },
+    select: {
+      lineNotifyEnabled: true,
+      lineChannelToken: true,
+      lineChannelSecret: true,
+      lineUserId: true,
+    },
+  });
+  return {
+    enabled: s.lineNotifyEnabled,
+    hasToken: !!s.lineChannelToken,
+    hasSecret: !!s.lineChannelSecret,
+    connected: !!s.lineUserId,
+  };
+}
+
 /** โหลดค่าตั้งของร้านปัจจุบัน (สำหรับฟอร์ม settings) */
 export async function getStoreSettings(): Promise<StoreSettings> {
   const storeId = await getCurrentStoreId();
