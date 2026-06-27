@@ -10,6 +10,8 @@ export type StoreSettings = {
   defaultShippingFee: number;
   payAccountName: string;
   payQrImage: string;
+  /** เลขพร้อมเพย์ (เบอร์/บัตรปชช.) — gen QR ตามยอดบิลอัตโนมัติ */
+  promptpayId: string;
   payWarning: string;
   payMethods: PaymentMethod[];
 };
@@ -60,6 +62,7 @@ export async function getStoreSettings(): Promise<StoreSettings> {
     defaultShippingFee: s.defaultShippingFee,
     payAccountName: s.payAccountName,
     payQrImage: s.payQrImage ?? "",
+    promptpayId: s.promptpayId,
     payWarning: s.payWarning ?? "",
     payMethods: (s.payMethods as PaymentMethod[] | null) ?? [],
   };

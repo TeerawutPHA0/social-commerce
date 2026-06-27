@@ -22,8 +22,10 @@ model Store {
   payAccountName     String  @default("")
   /// [{ label, value, note? }] — บัญชี/พร้อมเพย์/วอลเล็ต
   payMethods         Json    @default("[]")
-  /// path/URL รูป QR (null = ไม่มี)
+  /// path/URL รูป QR (null = ไม่มี) — ใช้เป็น fallback ถ้าไม่ได้ตั้ง promptpayId
   payQrImage         String?
+  /// เลขพร้อมเพย์ (เบอร์มือถือ/บัตรปชช.) — ระบบ gen QR ตามยอดบิลอัตโนมัติ ("" = ไม่ใช้)
+  promptpayId        String  @default("")
   payWarning         String?
   defaultShippingFee Float   @default(0)
 

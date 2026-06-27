@@ -53,6 +53,7 @@ export function PaymentSection({
   remainingText,
   slipUrl,
   pay,
+  promptpayQr,
 }: {
   token: string;
   status: PaymentStatus;
@@ -66,6 +67,8 @@ export function PaymentSection({
   slipUrl: string | null;
   /** ข้อมูลรับเงินของร้าน (จาก settings) */
   pay: StorePaymentInfo;
+  /** QR พร้อมเพย์ที่ฝังยอดแล้ว (data URL) — ใช้ก่อนรูป QR แบบ static ถ้ามี */
+  promptpayQr?: string | null;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -121,15 +124,31 @@ export function PaymentSection({
               ยอดเต็ม ฿{totalText} · คงเหลือ ฿{remainingText} (ชำระภายหลัง/ปลายทาง)
             </p>
           )}
-          {pay.qrImage && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={pay.qrImage}
-              alt="QR ชำระเงิน"
-              width={260}
-              height={260}
-              className="rounded-xl border border-pinksoft object-contain"
-            />
+          {promptpayQr ? (
+            <div className="flex flex-col items-center gap-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={promptpayQr}
+                alt="QR พร้อมเพย์ (ฝังยอดแล้ว)"
+                width={260}
+                height={260}
+                className="rounded-xl border border-pinksoft object-contain"
+              />
+              <p className="text-[11px] text-brown/50">
+                สแกนแล้วยอด ฿{amountText} ขึ้นอัตโนมัติ
+              </p>
+            </div>
+          ) : (
+            pay.qrImage && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={pay.qrImage}
+                alt="QR ชำระเงิน"
+                width={260}
+                height={260}
+                className="rounded-xl border border-pinksoft object-contain"
+              />
+            )
           )}
 
           {/* ข้อมูลบัญชี */}

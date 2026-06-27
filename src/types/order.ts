@@ -34,6 +34,8 @@ export interface StorePaymentInfo {
   methods: PaymentMethod[];
   /** path/URL รูป QR (null = ไม่มี) */
   qrImage: string | null;
+  /** เลขพร้อมเพย์ ("" = ไม่ใช้) — ใช้ gen QR ตามยอดบิลอัตโนมัติ */
+  promptpayId: string;
   warning: string | null;
 }
 

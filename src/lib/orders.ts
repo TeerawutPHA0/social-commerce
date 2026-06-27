@@ -17,6 +17,7 @@ type StorePayFields = {
   payAccountName: string;
   payMethods: unknown;
   payQrImage: string | null;
+  promptpayId: string;
   payWarning: string | null;
 };
 type DbOrderForCustomer = DbOrderWithItems & { store: StorePayFields };
@@ -33,6 +34,7 @@ function mapOrder(o: DbOrderForCustomer): Order {
         accountName: o.store.payAccountName,
         methods: (o.store.payMethods as PaymentMethod[] | null) ?? [],
         qrImage: o.store.payQrImage,
+        promptpayId: o.store.promptpayId,
         warning: o.store.payWarning,
       },
     },
@@ -75,6 +77,7 @@ export async function getOrderByToken(token: string): Promise<Order | null> {
           payAccountName: true,
           payMethods: true,
           payQrImage: true,
+          promptpayId: true,
           payWarning: true,
         },
       },

@@ -255,6 +255,7 @@ export async function updateStoreSettings(input: StoreSettings): Promise<{ error
       defaultShippingFee: Math.max(0, Number(input.defaultShippingFee) || 0),
       payAccountName: input.payAccountName.trim(),
       payQrImage: input.payQrImage.trim() || null,
+      promptpayId: (input.promptpayId ?? "").replace(/[^0-9]/g, ""),
       payWarning: input.payWarning.trim() || null,
       payMethods: methods,
     },
