@@ -336,7 +336,7 @@ export async function updateStoreSettings(input: StoreSettings): Promise<{ error
     where: { id: storeId },
     data: {
       name,
-      logo: input.logo.trim() || "/logo.jpg",
+      logo: input.logo.trim() || "/logo.svg",
       defaultShippingFee: Math.max(0, Number(input.defaultShippingFee) || 0),
       payAccountName: input.payAccountName.trim(),
       payQrImage: input.payQrImage.trim() || null,

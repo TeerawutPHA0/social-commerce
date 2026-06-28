@@ -77,7 +77,7 @@
 
 ## หมายเหตุ
 - **ข้อมูล demo (`npm run db:seed`)** = ข้อมูลตัวอย่างของผู้พัฒนา (ร้าน puffiepiece) — **อย่ารันบน DB ของลูกค้า** ใช้ `npm run bootstrap` แทน
-- **โลโก้ดีฟอลต์** `public/logo.jpg` เป็นของ puffiepiece — ลูกค้าเปลี่ยนเองได้ที่ `/admin/settings` (หรือแทนไฟล์ในโปรเจกต์ก่อน deploy)
+- **โลโก้ดีฟอลต์** `public/logo.svg` เป็นรูป placeholder กลาง ๆ — ลูกค้าตั้งโลโก้เองได้ที่ `/admin/settings` (วาง URL รูป)
 - **อัปเดตโค้ดภายหลัง**: `git pull` → push → Vercel redeploy อัตโนมัติ (ถ้าแก้ schema ให้รัน `npm run db:push` บนเครื่องชี้ DB ลูกค้าด้วย)
 - **เปลี่ยนรหัส owner**: ตั้ง `ADMIN_PASSWORD` ใหม่ใน `.env` แล้วรัน `npm run bootstrap` ซ้ำ (ยังไม่มีหน้าเปลี่ยนรหัสใน UI)
 - **สถาปัตยกรรม**: ทุกออเดอร์/สินค้าผูกกับ `storeId` (multi-tenant) — แม้โมเดลนี้ deploy ละ 1 ร้าน โครงนี้ก็แยกข้อมูลให้แน่นและรองรับหลายร้านต่อ deploy ได้ในอนาคต

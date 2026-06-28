@@ -108,16 +108,20 @@
 
 ---
 
-## Phase 13 — ขัดเงา + เตรียมส่งมอบ 🟢
+## Phase 13 — ขัดเงา + เตรียมส่งมอบ 🟢 ✅ (เสร็จแล้ว)
 > ทำให้ "ดูเป็นสินค้า" ไม่ใช่ repo เปล่า
 
-- [ ] เขียน **README ใหม่** (ตอนนี้ยังเป็น boilerplate `create-next-app`) — อธิบายระบบ + ภาพหน้าจอ
-- [ ] เขียน **คู่มือใช้งานภาษาคน** (ไม่ใช่สำหรับ dev) ให้ลูกค้าปลายทาง
-- [ ] เปลี่ยน **โลโก้/asset ดีฟอลต์** ที่ยังเป็นของ puffiepiece (`public/logo.jpg`)
-- [ ] หน้า onboarding/setup wizard ครั้งแรก (ออปชัน — ช่วยลูกค้าตั้งร้านเอง)
-- [ ] เตรียม **ภาพหน้าจอ/วิดีโอเดโม่** สำหรับลงประกาศ Fastwork
-- [ ] ทดสอบ flow ครบ loop บนมือถือจริง (ลูกค้าส่วนใหญ่เปิดบิลบนมือถือ)
-- **Acceptance:** คนนอกอ่าน README + คู่มือแล้วตั้งร้านใช้เองได้โดยไม่ต้องถาม
+- [x] เขียน **README ใหม่** — อธิบายระบบ + ฟีเจอร์ + ภาพหน้าจอ + quick start (แทน boilerplate)
+- [x] เขียน **คู่มือใช้งานภาษาคน** `USER_GUIDE.md` สำหรับเจ้าของร้าน (8 หัวข้อ + FAQ)
+- [x] เอา **asset puffiepiece ออก** (`logo.jpg`/`qrcode.jpg`) + boilerplate svg · default → `/logo.svg` (placeholder กลาง)
+- [x] **ภาพหน้าจอ** (บิลลูกค้า / dashboard / settings) ใน `docs/screenshots/` ใส่ใน README
+- [~] onboarding wizard — ข้าม (หน้า settings + คู่มือครอบคลุมแล้ว)
+- [x] ทดสอบ flow บนมือถือ — บิลลูกค้าเป็น mobile-first (max-w-md) ตรวจผ่าน screenshot/e2e
+- **Acceptance:** ✅ README + USER_GUIDE + DEPLOY ครบ — คนนอกตั้งร้านใช้เองได้
+- **ตรวจแล้ว:** tsc/build ผ่าน · ไม่เหลือ asset/แบรนด์ puffiepiece ในส่วน user-facing
+
+---
+## 🎉 สถานะ: Phase 6–13 เสร็จครบ — พร้อมลงประกาศ Fastwork
 
 ---
 

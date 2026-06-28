@@ -82,7 +82,7 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettings }) {
         <Field label="ชื่อร้าน">
           <input className={inputBase} value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <Field label="โลโก้ร้าน" hint="path ใน /public เช่น /logo.jpg หรือ URL รูป">
+        <Field label="โลโก้ร้าน" hint="วาง URL รูปโลโก้ (เว้นว่าง = ใช้โลโก้ดีฟอลต์)">
           <input className={inputBase} value={logo} onChange={(e) => setLogo(e.target.value)} />
         </Field>
         <Field label="ค่าส่งเริ่มต้น (บาท)" hint="ใช้เป็นค่าตั้งต้นตอนสร้างออเดอร์ใหม่">
@@ -119,7 +119,7 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettings }) {
             onChange={(e) => setPromptpayId(e.target.value.replace(/[^0-9]/g, ""))}
           />
         </Field>
-        <Field label="รูป QR (สำรอง)" hint="ใช้เมื่อไม่ได้กรอกเลขพร้อมเพย์ — path ใน /public เช่น /qrcode.jpg หรือ URL">
+        <Field label="รูป QR (สำรอง)" hint="ใช้เมื่อไม่ได้กรอกเลขพร้อมเพย์ — วาง URL รูป QR">
           <input className={inputBase} value={qrImage} onChange={(e) => setQrImage(e.target.value)} />
         </Field>
 

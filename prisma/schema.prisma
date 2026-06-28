@@ -76,7 +76,7 @@ model Order {
 
   /// snapshot ชื่อ/โลโก้ร้าน ณ ตอนสร้างบิล (กันแบรนด์เปลี่ยนแล้วบิลเก่าเพี้ยน)
   storeName String
-  storeLogo String @default("/logo.jpg")
+  storeLogo String @default("/logo.svg")
 
   /// received | preparing | shipped | delivered
   status      String @default("received")
