@@ -62,13 +62,15 @@
 
 ---
 
-## Phase 9 — จัดการบัญชีผู้ใช้ใน UI 🔴
-> ตอนนี้เปลี่ยนรหัสต้องรัน `npm run bootstrap` — ลูกค้าทั่วไปทำไม่ได้
+## Phase 9 — จัดการบัญชีผู้ใช้ใน UI 🔴 ✅ (เสร็จแล้ว)
+> เดิมเปลี่ยนรหัสต้องรัน `npm run bootstrap` — ลูกค้าทั่วไปทำไม่ได้
 
-- [ ] หน้า `/admin/settings` (หรือ `/admin/account`): เปลี่ยนรหัสผ่านตัวเอง (ยืนยันรหัสเดิม)
-- [ ] จัดการพนักงาน (ใช้ `role: owner|staff` ที่มีอยู่): เพิ่ม/ลบ staff, owner เท่านั้นที่ทำได้
-- [ ] (ออปชัน) จำกัดสิทธิ์ staff เช่น ห้ามลบออเดอร์/แก้ settings
-- **Acceptance:** owner เปลี่ยนรหัสเองได้ · เพิ่ม staff แล้ว staff login เห็นเฉพาะร้านตัวเอง
+- [x] หน้า `/admin/account`: เปลี่ยนรหัสผ่านตัวเอง (ยืนยันรหัสเดิม, ขั้นต่ำ 8 ตัว) — ทุก role
+- [x] จัดการพนักงาน (`role: owner|staff`): เพิ่ม/ลบ staff — owner เท่านั้น (`requireOwner`)
+- [x] จำกัดสิทธิ์ staff: หน้า/แอ็กชัน `ตั้งค่า` + `LINE` + จัดการผู้ใช้ = owner-only, ซ่อนลิงก์ "ตั้งค่า" จาก staff
+- **Acceptance:** ✅ e2e — owner เพิ่ม staff → staff login ได้ → เข้า `/admin/settings` ถูกเด้งกลับ → owner ลบ staff
+- **ตรวจแล้ว:** tsc/build ผ่าน · e2e 6/6 (รวมสเปก Phase 9 ใหม่) ไม่ regression
+- **หมายเหตุ:** เปลี่ยนรหัสไม่ล้าง session เก่า (cookie stateless มี exp 7 วัน) — ยอมรับได้, ปรับเป็น session ฝั่ง DB ได้ภายหลัง
 
 ---
 

@@ -5,9 +5,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import {
+  hashPassword,
   verifyPassword,
   startSession,
   endSession,
+  requireSession,
+  requireOwner,
   clientIp,
   checkRateLimit,
   recordFailedAttempt,
@@ -54,6 +57,60 @@ export async function loginAction(
 export async function logoutAction(): Promise<void> {
   await endSession();
   redirect("/admin/login");
+}
+
+/* ===================== Account / users (Phase 9) ===================== */
+
+const MIN_PASSWORD = 8;
+
+/** เปลี่ยนรหัสผ่านตัวเอง (ทุก role) — ต้องยืนยันรหัสเดิม */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ ok?: boolean; error?: string }> {
+  const session = await requireSession();
+  if (newPassword.length < MIN_PASSWORD) {
+    return { error: `รหัสผ่านใหม่ต้องยาวอย่างน้อย ${MIN_PASSWORD} ตัวอักษร` };
+  }
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: session.userId } });
+  if (!(await verifyPassword(currentPassword, user.passwordHash))) {
+    return { error: "รหัสผ่านปัจจุบันไม่ถูกต้อง" };
+  }
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash: await hashPassword(newPassword) },
+  });
+  return { ok: true };
+}
+
+/** เพิ่มพนักงาน (owner เท่านั้น) — ผูกกับร้านของ owner */
+export async function addStaff(email: string, password: string): Promise<{ error?: string }> {
+  const session = await requireOwner();
+  const e = email.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return { error: "อีเมลไม่ถูกต้อง" };
+  if (password.length < MIN_PASSWORD) {
+    return { error: `รหัสผ่านต้องยาวอย่างน้อย ${MIN_PASSWORD} ตัวอักษร` };
+  }
+  if (await prisma.user.findUnique({ where: { email: e } })) {
+    return { error: "อีเมลนี้ถูกใช้แล้ว" };
+  }
+  await prisma.user.create({
+    data: { email: e, passwordHash: await hashPassword(password), role: "staff", storeId: session.storeId },
+  });
+  revalidatePath("/admin/account");
+  return {};
+}
+
+/** ลบพนักงาน (owner เท่านั้น) — ลบได้เฉพาะ staff ในร้านเดียวกัน, ห้ามลบตัวเอง/owner */
+export async function removeStaff(userId: string): Promise<{ error?: string }> {
+  const session = await requireOwner();
+  if (userId === session.userId) return { error: "ลบบัญชีตัวเองไม่ได้" };
+  const res = await prisma.user.deleteMany({
+    where: { id: userId, storeId: session.storeId, role: "staff" },
+  });
+  if (res.count === 0) return { error: "ลบไม่ได้ (ไม่พบ หรือเป็นบัญชี owner)" };
+  revalidatePath("/admin/account");
+  return {};
 }
 
 /* ===================== Order CRUD ===================== */
@@ -232,7 +289,7 @@ export async function deleteProduct(id: string): Promise<void> {
 
 /** บันทึกค่าตั้งร้าน (ชื่อ/โลโก้/ค่าส่ง/ข้อมูลรับเงิน) — เฉพาะร้านปัจจุบัน */
 export async function updateStoreSettings(input: StoreSettings): Promise<{ error?: string }> {
-  const storeId = await getCurrentStoreId();
+  const { storeId } = await requireOwner();
 
   const name = input.name.trim();
   if (!name) return { error: "กรุณากรอกชื่อร้าน" };
@@ -278,7 +335,7 @@ export type LineSettingsInput = {
 export async function updateLineSettings(
   input: LineSettingsInput
 ): Promise<{ error?: string }> {
-  const storeId = await getCurrentStoreId();
+  const { storeId } = await requireOwner();
   const data: {
     lineNotifyEnabled: boolean;
     lineChannelToken?: string;
@@ -297,7 +354,7 @@ export async function updateLineSettings(
 
 /** ส่งข้อความทดสอบไปยัง LINE ของร้าน (ปุ่ม "ทดสอบส่ง" ในหน้า settings) */
 export async function sendLineTest(): Promise<{ ok?: boolean; error?: string }> {
-  const storeId = await getCurrentStoreId();
+  const { storeId } = await requireOwner();
   return deliverToMerchant(
     storeId,
     "🔔 ทดสอบการแจ้งเตือนจากระบบร้านค้า — ถ้าเห็นข้อความนี้แปลว่าเชื่อมต่อสำเร็จแล้ว ✅"

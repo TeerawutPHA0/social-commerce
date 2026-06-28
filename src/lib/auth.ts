@@ -105,6 +105,13 @@ export async function requireSession(): Promise<Session> {
   return s;
 }
 
+/** บังคับต้องเป็น owner — staff จะถูกเด้งกลับ /admin (ใช้กับหน้า/แอ็กชัน owner-only เช่น ตั้งค่า/จัดการผู้ใช้) */
+export async function requireOwner(): Promise<Session> {
+  const s = await requireSession();
+  if (s.role !== "owner") redirect("/admin");
+  return s;
+}
+
 /* ===================== Login rate limit (best-effort) =====================
    เก็บใน memory ของ instance — กัน brute force ได้ระดับหนึ่ง
    หมายเหตุ: serverless มีหลาย instance/cold start → ของจริงควรย้ายไป Redis/DB */

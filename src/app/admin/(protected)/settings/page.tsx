@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { requireOwner } from "@/lib/auth";
 import { getStoreSettings, getLineSettings } from "@/lib/settings";
 import { StoreSettingsForm } from "@/components/admin/StoreSettingsForm";
 import { LineSettingsForm } from "@/components/admin/LineSettingsForm";
 
 export default async function SettingsPage() {
+  await requireOwner(); // staff เข้าหน้าตั้งค่าไม่ได้ (เด้งกลับ /admin)
   const [settings, lineSettings] = await Promise.all([getStoreSettings(), getLineSettings()]);
   return (
     <div className="flex flex-col gap-4">
