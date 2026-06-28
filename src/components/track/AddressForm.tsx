@@ -11,11 +11,15 @@ const inputCls =
 export function AddressForm({
   token,
   initial,
+  consented = false,
 }: {
   token: string;
   initial: { name: string; address: string; postcode: string; phone: string; email: string };
+  /** ลูกค้าเคยยอมรับนโยบายแล้วหรือยัง (กลับมาแก้ที่อยู่ไม่ต้องติ๊กใหม่) */
+  consented?: boolean;
 }) {
   const [d, setD] = useState(initial);
+  const [consent, setConsent] = useState(consented);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -23,8 +27,12 @@ export function AddressForm({
 
   function submit() {
     setError(null);
+    if (!consent) {
+      setError("กรุณายอมรับนโยบายความเป็นส่วนตัวก่อนบันทึก");
+      return;
+    }
     startTransition(async () => {
-      const res = await submitAddress(token, d);
+      const res = await submitAddress(token, d, consent);
       if (res.error) setError(res.error);
     });
   }
@@ -83,6 +91,27 @@ export function AddressForm({
             value={d.email}
             onChange={(e) => set("email", e.target.value)}
           />
+        </label>
+
+        <label className="flex items-start gap-2 text-xs text-brown/70">
+          <input
+            type="checkbox"
+            checked={consent}
+            onChange={(e) => setConsent(e.target.checked)}
+            className="mt-0.5 accent-pink"
+          />
+          <span>
+            ฉันยอมรับ
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-pinkdeep underline"
+            >
+              นโยบายความเป็นส่วนตัว
+            </a>
+            ให้ร้านเก็บและใช้ข้อมูลเพื่อจัดส่งสินค้า
+          </span>
         </label>
 
         {error && <p className="text-sm text-pinkdeep">⚠️ {error}</p>}

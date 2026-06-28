@@ -17,7 +17,7 @@
 
 **ฝั่งร้าน (Admin)**
 - สร้าง/แก้บิล · มัดจำหรือจ่ายเต็ม · ส่วนลดต่อบิล · แคตตาล็อกสินค้า (พร้อมรูป)
-- ตรวจสลิป (อนุมัติ/ปฏิเสธ) · ใส่เลขพัสดุ · เช็คสถานะพัสดุอัตโนมัติ (ไปรษณีย์ไทย/Kerry/Flash/J&T)
+- ตรวจสลิป (อนุมัติ/ปฏิเสธ) + **ตรวจสลิปอัตโนมัติ (EasySlip)** กันสลิปปลอม/ยอดไม่ตรง/สลิปซ้ำ · ใส่เลขพัสดุ · เช็คสถานะพัสดุอัตโนมัติ (ไปรษณีย์ไทย/Kerry/Flash/J&T)
 - **แจ้งเตือน LINE** เข้าร้านเมื่อมีสลิปใหม่รอตรวจ
 - Dashboard สถิติ + กราฟยอดขายรายเดือน · ค้นหา/กรอง/แบ่งหน้า (รองรับออเดอร์หลักพัน)
 - **Export CSV** (เปิด Excel ภาษาไทยไม่เพี้ยน) · **ใบเสร็จพิมพ์ได้**
@@ -28,6 +28,8 @@
 - ความลับใน DB เข้ารหัส AES-256-GCM (LINE token ฯลฯ)
 - Rate-limit login (Upstash Redis ถ้ามี / in-memory ถ้าไม่มี) · ตรวจไฟล์อัปโหลดด้วย magic bytes
 - ลิงก์บิลเป็น token ลับ 32 hex · ข้อมูลแยกต่อร้านด้วย `storeId` (มี e2e ยืนยัน)
+- **PDPA**: หน้านโยบายความเป็นส่วนตัว (`/privacy`) + checkbox ยินยอมก่อนเก็บข้อมูลลูกค้า (บันทึกเวลายินยอม)
+- **Unit test** (Vitest) คุม logic เสี่ยง: เข้ารหัส · ตรวจสลิป · QR พร้อมเพย์ · rate-limit · magic byte
 
 ---
 
@@ -51,7 +53,7 @@
 | ไฟล์ (สลิป/รูป) | Vercel Blob (+ fallback เขียน disk ตอน dev) |
 | UI | Tailwind CSS 4 |
 | QR | `promptpay-qr` + `qrcode` |
-| Test | Playwright (e2e) |
+| Test | Vitest (unit) + Playwright (e2e) |
 
 ---
 
@@ -86,6 +88,7 @@ npm run dev      # http://localhost:3000  ·  admin: /admin
 | `npm run build` / `npm start` | production build / run |
 | `npm run db:push` | sync schema → DB |
 | `npm run bootstrap` | สร้างร้านเปล่า + owner (idempotent) |
+| `npm test` | Vitest unit test (logic ล้วน ไม่ต้องมี DB) |
 | `npm run e2e` | Playwright e2e (ต้องมี `DATABASE_URL`) |
 | `npm run lint` | eslint |
 

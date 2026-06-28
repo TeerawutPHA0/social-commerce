@@ -93,6 +93,8 @@ export interface Order {
   };
   /** เวลาที่ร้านยืนยันจัดส่งสำเร็จ (ISO) หรือ null */
   deliveredAt: string | null;
+  /** เวลาที่ลูกค้ายอมรับนโยบายความเป็นส่วนตัว (ISO) หรือ null = ยังไม่ยอมรับ */
+  consentAt: string | null;
   /** ข้อความหมายเหตุจากร้าน (เช่น รอบจัดส่ง) */
   note?: string;
 }

@@ -11,13 +11,23 @@ export function SlipReview({
   slipUrl,
   status,
   amountText,
+  verifyStatus,
+  verifyNote,
 }: {
   id: string;
   slipUrl: string;
   status: PaymentStatus;
   amountText: string;
+  /** ผลตรวจสลิปอัตโนมัติ (null = ไม่ได้เปิดใช้/ยังไม่ตรวจ) */
+  verifyStatus?: "verified" | "amount_mismatch" | "failed" | null;
+  verifyNote?: string | null;
 }) {
   const [pending, startTransition] = useTransition();
+  // สีกล่องผลตรวจ: เขียว = ผ่าน, เหลือง = ยอด/อ่านไม่ตรง (ร้านยังตัดสินใจเอง)
+  const verifyTone =
+    verifyStatus === "verified"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : "border-amber-200 bg-amber-50 text-amber-700";
 
   return (
     <section className="rounded-2xl border border-pinksoft bg-white p-4 shadow-[0_2px_12px_rgba(86,62,50,0.06)]">
@@ -29,6 +39,12 @@ export function SlipReview({
       </div>
 
       <p className="mb-2 text-sm text-brown/70">ยอดที่ต้องชำระ: ฿{amountText}</p>
+
+      {verifyStatus && verifyNote && (
+        <p className={`mb-2 rounded-xl border px-3 py-2 text-xs ${verifyTone}`}>
+          {verifyNote}
+        </p>
+      )}
 
       <a href={slipUrl} target="_blank" rel="noopener noreferrer">
         {/* eslint-disable-next-line @next/next/no-img-element */}

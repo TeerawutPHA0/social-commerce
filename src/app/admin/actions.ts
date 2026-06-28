@@ -241,6 +241,10 @@ export async function verifyPayment(id: string, approve: boolean): Promise<void>
           paymentStatus: "unpaid",
           paymentSlipUrl: null,
           paymentTransferredAt: null,
+          // ปฏิเสธแล้วเคลียร์ผลตรวจ + ปลดเลขอ้างอิง เพื่อให้ลูกค้าอัปสลิปใหม่ได้
+          slipVerifyStatus: null,
+          slipVerifyNote: null,
+          slipRef: null,
         },
   });
   revalidatePath("/admin");
@@ -343,10 +347,13 @@ export async function updateStoreSettings(input: StoreSettings): Promise<{ error
       promptpayId: (input.promptpayId ?? "").replace(/[^0-9]/g, ""),
       payWarning: input.payWarning.trim() || null,
       payMethods: methods,
+      legalName: input.legalName.trim(),
+      privacyContact: input.privacyContact.trim(),
     },
   });
 
   revalidatePath("/admin/settings");
+  revalidatePath("/privacy");
   return {};
 }
 
