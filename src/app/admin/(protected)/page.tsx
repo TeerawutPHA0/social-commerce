@@ -77,6 +77,38 @@ export default async function AdminDashboard({
       {/* กราฟยอดขายรายเดือน */}
       <MonthlySalesCard data={monthlySales} />
 
+      {/* Export CSV (ตามช่วงวันที่ + ฟิลเตอร์สถานะปัจจุบัน) */}
+      <form
+        action="/admin/orders/export"
+        method="get"
+        className="flex flex-wrap items-end gap-3 rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(86,62,50,0.06)]"
+      >
+        {activeFilter !== "all" && <input type="hidden" name="status" value={activeFilter} />}
+        <label className="flex flex-col gap-1 text-xs text-brown/60">
+          จากวันที่
+          <input
+            type="date"
+            name="from"
+            className="rounded-xl border border-pinksoft bg-cream px-3 py-2 text-sm text-brown outline-none focus:border-pink"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-brown/60">
+          ถึงวันที่
+          <input
+            type="date"
+            name="to"
+            className="rounded-xl border border-pinksoft bg-cream px-3 py-2 text-sm text-brown outline-none focus:border-pink"
+          />
+        </label>
+        <button
+          type="submit"
+          className="rounded-xl border border-pinksoft bg-blush px-4 py-2 text-sm font-semibold text-brown shadow-sm transition active:scale-95"
+        >
+          ⬇ Export CSV
+        </button>
+        <span className="text-xs text-brown/40">เว้นวันที่ = ทั้งหมด · ใช้สถานะที่เลือกอยู่</span>
+      </form>
+
       {/* หัวข้อ + ปุ่มสร้าง */}
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold text-brown">ออเดอร์ ({total})</h1>
@@ -188,6 +220,9 @@ export default async function AdminDashboard({
                   </Link>
                   <Link href={`/admin/orders/${o.id}`} className="font-medium text-brown">
                     แก้ไข
+                  </Link>
+                  <Link href={`/admin/orders/${o.id}/receipt`} className="font-medium text-brown">
+                    ใบเสร็จ
                   </Link>
                   <span className="flex-1" />
                   <DeleteOrderButton id={o.id} orderNo={o.orderNo} />

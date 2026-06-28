@@ -180,6 +180,24 @@ export async function listOrders(opts: ListOrdersOpts = {}): Promise<ListOrdersR
   return { orders, total, page, pageSize };
 }
 
+/** ออเดอร์สำหรับ export CSV (ทั้งหมดที่ตรงเงื่อนไข — ช่วงวันที่ + สถานะ) */
+export async function ordersForExport(opts: {
+  from?: Date;
+  to?: Date;
+  step?: FlowStep | "all";
+}): Promise<DbOrderWithItems[]> {
+  const storeId = await getCurrentStoreId();
+  const and: OrderWhere[] = [];
+  if (opts.step && opts.step !== "all") and.push(stepWhere(opts.step));
+  if (opts.from || opts.to) and.push({ createdAt: { gte: opts.from, lte: opts.to } });
+  const where: OrderWhere = and.length ? { storeId, AND: and } : { storeId };
+  return prisma.order.findMany({
+    where,
+    include: { items: true },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 /** รายได้ที่รับจริง (ออเดอร์ชำระแล้ว) — รวมยอดสินค้า+ค่าส่ง, มัดจำนับเฉพาะยอดมัดจำ
  *  คิดใน DB ด้วย SQL (ไม่ดึงทุกแถวมา loop) */
 async function computeRevenue(storeId: string): Promise<number> {
