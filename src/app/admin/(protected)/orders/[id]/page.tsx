@@ -74,6 +74,8 @@ export default async function EditOrderPage({
           slipUrl={o.paymentSlipUrl}
           status={o.paymentStatus as PaymentStatus}
           amountText={formatTHB(orderTotal({ items: o.items, shippingFee: o.shippingFee, discount: o.discount }))}
+          verifyStatus={o.slipVerifyStatus as "verified" | "amount_mismatch" | "failed" | null}
+          verifyNote={o.slipVerifyNote}
         />
       )}
 

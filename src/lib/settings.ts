@@ -14,6 +14,10 @@ export type StoreSettings = {
   promptpayId: string;
   payWarning: string;
   payMethods: PaymentMethod[];
+  /** PDPA: ชื่อผู้ควบคุมข้อมูล (ว่าง = ใช้ชื่อร้าน) */
+  legalName: string;
+  /** PDPA: ช่องทางติดต่อเรื่องข้อมูลส่วนบุคคล */
+  privacyContact: string;
 };
 
 /** ชื่อ/โลโก้ร้านสำหรับหน้า public ที่ไม่มี session (login, หน้าแรก, หัวแอดมิน)
@@ -65,5 +69,7 @@ export async function getStoreSettings(): Promise<StoreSettings> {
     promptpayId: s.promptpayId,
     payWarning: s.payWarning ?? "",
     payMethods: (s.payMethods as PaymentMethod[] | null) ?? [],
+    legalName: s.legalName,
+    privacyContact: s.privacyContact,
   };
 }

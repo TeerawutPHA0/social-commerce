@@ -63,6 +63,7 @@ function mapOrder(o: DbOrderForCustomer): Order {
         ? { courier: o.trackingCourier as Courier, trackingNo: o.trackingNo }
         : undefined,
     deliveredAt: o.deliveredAt?.toISOString() ?? null,
+    consentAt: o.consentAt?.toISOString() ?? null,
     note: o.note ?? undefined,
   };
 }

@@ -34,6 +34,8 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettings }) {
   const [qrImage, setQrImage] = useState(initial.payQrImage);
   const [promptpayId, setPromptpayId] = useState(initial.promptpayId);
   const [warning, setWarning] = useState(initial.payWarning);
+  const [legalName, setLegalName] = useState(initial.legalName);
+  const [privacyContact, setPrivacyContact] = useState(initial.privacyContact);
   const [methods, setMethods] = useState<PaymentMethod[]>(
     initial.payMethods.length ? initial.payMethods : [{ label: "", value: "" }]
   );
@@ -65,6 +67,8 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettings }) {
         promptpayId,
         payWarning: warning,
         payMethods: methods,
+        legalName,
+        privacyContact,
       });
       if (res?.error) {
         setError(res.error);
@@ -166,6 +170,40 @@ export function StoreSettingsForm({ initial }: { initial: StoreSettings }) {
 
         <Field label="ข้อความเตือนตอนโอน" hint="เช่น รบกวนเช็คเลขก่อนโอนนะคะ">
           <input className={inputBase} value={warning} onChange={(e) => setWarning(e.target.value)} />
+        </Field>
+      </section>
+
+      {/* นโยบายความเป็นส่วนตัว (PDPA) */}
+      <section className="flex flex-col gap-4 rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(86,62,50,0.06)]">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-sm font-semibold text-brown">นโยบายความเป็นส่วนตัว (PDPA)</h2>
+          <p className="text-xs text-brown/50">
+            ใช้เติมในหน้า{" "}
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline">
+              /privacy
+            </a>{" "}
+            ที่ลูกค้าเห็น — ตามกฎหมายคุ้มครองข้อมูลส่วนบุคคล
+          </p>
+        </div>
+        <Field
+          label="ชื่อผู้ควบคุมข้อมูล / ชื่อกิจการ"
+          hint="ชื่อนิติบุคคลหรือเจ้าของกิจการตามกฎหมาย (เว้นว่าง = ใช้ชื่อร้าน)"
+        >
+          <input
+            className={inputBase}
+            value={legalName}
+            onChange={(e) => setLegalName(e.target.value)}
+          />
+        </Field>
+        <Field
+          label="ช่องทางติดต่อเรื่องข้อมูลส่วนบุคคล"
+          hint="อีเมล/เบอร์/LINE ที่ลูกค้าใช้ขอเข้าถึง/แก้ไข/ลบข้อมูลได้"
+        >
+          <input
+            className={inputBase}
+            value={privacyContact}
+            onChange={(e) => setPrivacyContact(e.target.value)}
+          />
         </Field>
       </section>
 

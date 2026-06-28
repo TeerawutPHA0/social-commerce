@@ -121,7 +121,22 @@
 - **ตรวจแล้ว:** tsc/build ผ่าน · ไม่เหลือ asset/แบรนด์ puffiepiece ในส่วน user-facing
 
 ---
-## 🎉 สถานะ: Phase 6–13 เสร็จครบ — พร้อมลงประกาศ Fastwork
+
+## Phase 14 — ปิดช่องว่างก่อนขายจริง (จากรีวิว) 🔴 ✅ (เสร็จแล้ว)
+> สิ่งที่รีวิวพบว่ายัง "เสี่ยง/ปิดดีลไม่ได้ถ้าขาด" — ทำเพิ่มหลัง Phase 13
+
+- [x] **ตรวจสลิปอัตโนมัติ (กันสลิปปลอม)** — `src/lib/slip-verify/` ต่อ EasySlip แบบ pluggable (มี `EASYSLIP_API_KEY` = เปิด, ไม่มี = ตรวจมือเหมือนเดิม)
+  - ลูกค้าอัปสลิป → อ่านยอด/บัญชีผู้รับ/เลขอ้างอิง → แสดง ✅ยอดตรง/⚠️ไม่ตรง ในหน้าตรวจสลิป + แนบในแจ้งเตือน LINE
+  - **กันสลิปซ้ำ** ระดับ DB: `@@unique([storeId, slipRef])` — เลขอ้างอิงเดียวกันใช้ได้บิลเดียวต่อร้าน
+  - ร้านยังกด "ยืนยันชำระเงิน" เอง (ระบบช่วยตรวจ ไม่ auto-approve)
+- [x] **PDPA** — หน้า `/privacy` (template เติมชื่อผู้ควบคุมข้อมูล/ช่องทางติดต่อจาก settings) + checkbox ยินยอมก่อนกรอกที่อยู่ (บันทึก `consentAt`)
+- [x] **Backup & อัปเดตสคีมาปลอดภัย** — `DEPLOY.md` ข้อ 7–8: PITR/`pg_dump` + ขั้นตอน `db push` แบบ additive (คง db push ตามเดิม ไม่เปลี่ยนเป็น migrate เพราะ Neon pooled)
+- [x] **Unit test (Vitest)** — `test/`: crypto roundtrip/tamper · slip magic-byte · promptpay validate · rate-limit · matchAmount (25 เทส)
+- **Acceptance:** ✅ `tsc` + `eslint` + `next build` + `npm test` (25/25) ผ่าน
+- **เหลือทำก่อนใช้จริง:** รัน `npm run db:push` (เพิ่มคอลัมน์ `slipVerifyStatus`/`slipVerifyNote`/`slipRef`/`consentAt` + `Store.legalName`/`privacyContact`) · (ออปชัน) สมัคร EasySlip ใส่ key
+
+---
+## 🎉 สถานะ: Phase 6–14 เสร็จครบ — พร้อมลงประกาศ Fastwork
 
 ---
 
@@ -131,4 +146,4 @@
 ส่วน 10–12 ค่อยทยอยเติมเป็น "เวอร์ชันอัปเกรด" ขายเพิ่มได้
 
 ---
-_อัปเดตล่าสุด: 2026-06-27_
+_อัปเดตล่าสุด: 2026-06-28_

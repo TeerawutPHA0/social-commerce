@@ -66,6 +66,7 @@ export default async function TrackOrderPage({ params }: Props) {
         <>
           <AddressForm
             token={token}
+            consented={!!order.consentAt}
             initial={{
               name: order.shipping.name,
               address: order.shipping.address,
@@ -145,6 +146,15 @@ export default async function TrackOrderPage({ params }: Props) {
 
       <p className="pt-2 text-center text-xs text-brown/40">
         บิลนี้สร้างจากลิงก์เฉพาะของคุณ · ไม่ต้องเข้าสู่ระบบ
+        <br />
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+        >
+          นโยบายความเป็นส่วนตัว
+        </a>
       </p>
     </main>
   );

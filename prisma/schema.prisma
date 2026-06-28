@@ -18,6 +18,12 @@ model Store {
   name String
   logo String @default("/logo.svg")
 
+  /// ===== PDPA: ผู้ควบคุมข้อมูลส่วนบุคคล (แสดงในหน้านโยบาย /privacy) =====
+  /// ชื่อผู้ควบคุมข้อมูล (นิติบุคคล/เจ้าของกิจการ) — ว่าง = ใช้ชื่อร้าน
+  legalName      String @default("")
+  /// ช่องทางติดต่อเรื่องข้อมูลส่วนบุคคล (อีเมล/เบอร์/LINE) — แสดงในนโยบาย
+  privacyContact String @default("")
+
   /// ข้อมูลรับเงิน (แก้ผ่าน UI ที่ /admin/settings)
   payAccountName     String  @default("")
   /// [{ label, value, note? }] — บัญชี/พร้อมเพย์/วอลเล็ต
@@ -101,6 +107,12 @@ model Order {
   paymentTransferredAt     DateTime?
   /// URL รูปสลิปบน Vercel Blob (null = ยังไม่อัพ)
   paymentSlipUrl           String?
+  /// ผลตรวจสลิปอัตโนมัติ (EasySlip ฯลฯ) — verified | amount_mismatch | failed | null(=ไม่ได้เปิดใช้/ยังไม่ตรวจ)
+  slipVerifyStatus         String?
+  /// ข้อความสรุปผลตรวจสลิปให้ร้านอ่าน (เช่น "✅ สลิปจริง · ยอด ฿270 ตรง")
+  slipVerifyNote           String?
+  /// เลขอ้างอิงรายการโอน (transRef) จากผู้ให้บริการตรวจสลิป — กันอัปสลิปซ้ำในร้านเดียวกัน
+  slipRef                  String?
 
   /// thailand-post | kerry | flash | jt (null = ยังไม่มีเลขพัสดุ)
   trackingCourier String?
@@ -110,12 +122,17 @@ model Order {
 
   note String?
 
+  /// เวลาที่ลูกค้ายอมรับนโยบายความเป็นส่วนตัว (PDPA) ตอนกรอกที่อยู่ (null = ยังไม่ยอมรับ)
+  consentAt DateTime?
+
   items OrderItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([storeId, orderNo])
+  /// กันสลิปซ้ำ: เลขอ้างอิงรายการโอนเดียวกันใช้ได้บิลเดียวต่อร้าน (null ซ้ำได้ — Postgres ถือ null เป็นค่าต่างกัน)
+  @@unique([storeId, slipRef])
   @@index([storeId, status])
   /// เรียง/แบ่งหน้า "ออเดอร์ล่าสุดของร้าน" + กรองช่วงเดือน (สถิติ) ให้ใช้ index
   @@index([storeId, createdAt])
