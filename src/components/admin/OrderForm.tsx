@@ -20,6 +20,7 @@ type FormState = {
   storeLogo: string;
   status: OrderStatus;
   shippingFee: string;
+  discount: string;
   shippingName: string;
   shippingPhone: string;
   shippingAddress: string;
@@ -63,6 +64,7 @@ export function OrderForm({
     storeLogo: initial.storeLogo,
     status: initial.status,
     shippingFee: String(initial.shippingFee),
+    discount: String(initial.discount),
     shippingName: initial.shippingName,
     shippingPhone: initial.shippingPhone,
     shippingAddress: initial.shippingAddress,
@@ -113,9 +115,12 @@ export function OrderForm({
   const removeItem = (i: number) =>
     setF((prev) => ({ ...prev, items: prev.items.filter((_, idx) => idx !== i) }));
 
-  const total =
+  const total = Math.max(
+    0,
     f.items.reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.price) || 0), 0) +
-    (Number(f.shippingFee) || 0);
+      (Number(f.shippingFee) || 0) -
+      (Number(f.discount) || 0)
+  );
 
   function submit() {
     setError(null);
@@ -128,6 +133,7 @@ export function OrderForm({
       storeLogo: f.storeLogo,
       status: f.status,
       shippingFee: Number(f.shippingFee) || 0,
+      discount: Number(f.discount) || 0,
       shippingName: f.shippingName,
       shippingPhone: f.shippingPhone,
       shippingAddress: f.shippingAddress,
@@ -256,6 +262,17 @@ export function OrderForm({
             step="0.01"
             value={f.shippingFee}
             onChange={(e) => set("shippingFee", e.target.value)}
+          />
+        </Field>
+
+        <Field label="ส่วนลด (บาท) — หักจากยอดรวม">
+          <input
+            className={inputCls}
+            type="number"
+            min={0}
+            step="0.01"
+            value={f.discount}
+            onChange={(e) => set("discount", e.target.value)}
           />
         </Field>
 

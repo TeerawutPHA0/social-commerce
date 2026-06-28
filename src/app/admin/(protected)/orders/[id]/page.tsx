@@ -31,6 +31,7 @@ export default async function EditOrderPage({
     storeLogo: o.storeLogo,
     status: o.status as OrderStatus,
     shippingFee: o.shippingFee,
+    discount: o.discount,
     shippingName: o.shippingName,
     shippingPhone: o.shippingPhone,
     shippingAddress: o.shippingAddress,
@@ -72,7 +73,7 @@ export default async function EditOrderPage({
           id={o.id}
           slipUrl={o.paymentSlipUrl}
           status={o.paymentStatus as PaymentStatus}
-          amountText={formatTHB(orderTotal({ items: o.items, shippingFee: o.shippingFee }))}
+          amountText={formatTHB(orderTotal({ items: o.items, shippingFee: o.shippingFee, discount: o.discount }))}
         />
       )}
 

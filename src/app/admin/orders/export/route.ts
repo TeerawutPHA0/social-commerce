@@ -22,7 +22,7 @@ export async function GET(req: Request) {
 
   const headers = [
     "เลขบิล", "วันที่สั่ง", "สถานะชำระ", "ชื่อผู้รับ", "เบอร์", "ที่อยู่", "รหัสไปรษณีย์",
-    "สินค้า", "ยอดสินค้า", "ค่าส่ง", "ยอดรวม", "ประเภทชำระ", "ยอดที่โอน", "ขนส่ง", "เลขพัสดุ", "ส่งสำเร็จเมื่อ",
+    "สินค้า", "ยอดสินค้า", "ค่าส่ง", "ส่วนลด", "ยอดรวม", "ประเภทชำระ", "ยอดที่โอน", "ขนส่ง", "เลขพัสดุ", "ส่งสำเร็จเมื่อ",
   ];
   const rows = orders.map((o) => {
     const subtotal = o.items.reduce((s, it) => s + it.qty * it.price, 0);
@@ -37,7 +37,8 @@ export async function GET(req: Request) {
       o.items.map((it) => `${it.name} x${it.qty}`).join("; "),
       subtotal,
       o.shippingFee,
-      subtotal + o.shippingFee,
+      o.discount,
+      Math.max(0, subtotal + o.shippingFee - o.discount),
       o.paymentType,
       o.paymentTransferredAmount,
       o.trackingCourier ?? "",

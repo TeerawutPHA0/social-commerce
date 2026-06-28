@@ -1,8 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import type { Product } from "@/lib/products";
-import { createProduct, updateProduct, deleteProduct } from "@/app/admin/actions";
+import {
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  setProductImage,
+  removeProductImage,
+} from "@/app/admin/actions";
 
 // base ไม่มี w-full — กันชนกับ w-24/w-28 ที่ใส่ทีหลัง (Tailwind v4 generated order)
 const inputBase =
@@ -89,6 +95,20 @@ function ProductRow({ product }: { product: Product }) {
   const [price, setPrice] = useState(String(product.price));
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const imgRef = useRef<HTMLInputElement>(null);
+
+  function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    const fd = new FormData();
+    fd.set("image", file);
+    startTransition(async () => {
+      const res = await setProductImage(product.id, fd);
+      if (res?.error) setError(res.error);
+      if (imgRef.current) imgRef.current.value = "";
+    });
+  }
 
   function save() {
     setError(null);
@@ -158,29 +178,66 @@ function ProductRow({ product }: { product: Product }) {
   }
 
   return (
-    <li className="flex items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(86,62,50,0.06)]">
-      <span className="min-w-0 flex-1 truncate font-medium text-brown">{product.name}</span>
-      <span className="shrink-0 text-brown/70">
-        ฿{product.price.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
-      </span>
-      <button
-        type="button"
-        onClick={() => setEditing(true)}
-        className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-brown transition active:scale-95"
-      >
-        แก้ไข
-      </button>
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() => {
-          if (!confirm(`ลบสินค้า "${product.name}"?`)) return;
-          startTransition(() => deleteProduct(product.id));
-        }}
-        className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-pinkdeep transition active:scale-95 disabled:opacity-40"
-      >
-        {pending ? "…" : "ลบ"}
-      </button>
+    <li className="flex flex-col gap-2 rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(86,62,50,0.06)]">
+      <div className="flex items-center gap-3">
+        {/* รูปสินค้า — คลิกเพื่ออัพ/เปลี่ยน */}
+        <label className="shrink-0 cursor-pointer" title={product.image ? "เปลี่ยนรูป" : "เพิ่มรูป"}>
+          {product.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.image}
+              alt={product.name}
+              className="h-12 w-12 rounded-lg border border-pinksoft object-cover"
+            />
+          ) : (
+            <span className="flex h-12 w-12 items-center justify-center rounded-lg border border-dashed border-pinksoft text-[10px] text-brown/40">
+              + รูป
+            </span>
+          )}
+          <input
+            ref={imgRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={pending}
+            onChange={onPickImage}
+          />
+        </label>
+
+        <span className="min-w-0 flex-1 truncate font-medium text-brown">{product.name}</span>
+        <span className="shrink-0 text-brown/70">
+          ฿{product.price.toLocaleString("th-TH", { minimumFractionDigits: 2 })}
+        </span>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-brown transition active:scale-95"
+        >
+          แก้ไข
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => {
+            if (!confirm(`ลบสินค้า "${product.name}"?`)) return;
+            startTransition(() => deleteProduct(product.id));
+          }}
+          className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-pinkdeep transition active:scale-95 disabled:opacity-40"
+        >
+          {pending ? "…" : "ลบ"}
+        </button>
+      </div>
+      {error && <p className="text-xs text-pinkdeep">⚠️ {error}</p>}
+      {product.image && (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => startTransition(() => removeProductImage(product.id))}
+          className="self-start text-[11px] text-brown/40 underline disabled:opacity-40"
+        >
+          ลบรูป
+        </button>
+      )}
     </li>
   );
 }

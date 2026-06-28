@@ -64,6 +64,8 @@ export interface Order {
   items: OrderItem[];
   /** ค่าส่ง (บาท) — 0 = ส่งฟรี */
   shippingFee: number;
+  /** ส่วนลดต่อบิล (บาท) — หักจากยอดรวม */
+  discount: number;
   shipping: {
     name: string;
     phone: string;
@@ -101,6 +103,8 @@ export interface OrderFormInput {
   storeLogo: string;
   status: OrderStatus;
   shippingFee: number;
+  /** ส่วนลดต่อบิล (บาท) */
+  discount: number;
   shippingName: string;
   shippingPhone: string;
   shippingAddress: string;

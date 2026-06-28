@@ -81,6 +81,8 @@ model Order {
   /// received | preparing | shipped | delivered
   status      String @default("received")
   shippingFee Float  @default(0)
+  /// ส่วนลดต่อบิล (บาท) — หักจากยอดรวม
+  discount    Float  @default(0)
 
   shippingName     String
   shippingPhone    String
@@ -123,6 +125,8 @@ model Order {
 model Product {
   id   String @id @default(cuid())
   name String
+  /// URL รูปสินค้า (Vercel Blob / local) — null = ไม่มีรูป
+  image String?
 
   store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
   storeId String

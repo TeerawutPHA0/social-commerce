@@ -12,7 +12,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   if (!o) notFound();
 
   const subtotal = o.items.reduce((s, it) => s + it.qty * it.price, 0);
-  const total = subtotal + o.shippingFee;
+  const total = Math.max(0, subtotal + o.shippingFee - o.discount);
   const isDeposit = o.paymentType === "deposit";
 
   return (
@@ -70,6 +70,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
         <div className="border-t border-pinksoft pt-3 text-sm">
           <Row label="ยอดสินค้า" value={`฿${formatTHB(subtotal)}`} />
           <Row label="ค่าส่ง" value={`฿${formatTHB(o.shippingFee)}`} />
+          {o.discount > 0 && <Row label="ส่วนลด" value={`−฿${formatTHB(o.discount)}`} />}
           <Row label="ยอดรวมทั้งสิ้น" value={`฿${formatTHB(total)}`} bold />
           {isDeposit && (
             <>

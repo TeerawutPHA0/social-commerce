@@ -18,7 +18,8 @@ import {
 } from "@/lib/auth";
 import { getTrackingStatus } from "@/lib/couriers";
 import { getCurrentStoreId } from "@/lib/store";
-import { deleteSlipBlob } from "@/lib/slip";
+import { deleteSlipBlob, validateSlip } from "@/lib/slip";
+import { uploadProductImage, deleteProductImage } from "@/lib/productImage";
 import { encrypt } from "@/lib/crypto";
 import { deliverToMerchant } from "@/lib/notify";
 import type { Courier, OrderFormInput, PaymentMethod } from "@/types/order";
@@ -158,6 +159,7 @@ function toData(input: OrderFormInput, brand: { name: string; logo: string }) {
     storeLogo: input.storeLogo.trim() || brand.logo,
     status: input.status,
     shippingFee: Number(input.shippingFee) || 0,
+    discount: Math.max(0, Number(input.discount) || 0),
     shippingName: input.shippingName.trim(),
     shippingPhone: input.shippingPhone.trim(),
     shippingAddress: input.shippingAddress.trim(),
@@ -281,7 +283,34 @@ export async function updateProduct(
 /** ลบสินค้าออกจากแคตตาล็อก เฉพาะของร้านปัจจุบัน (ไม่กระทบออเดอร์เก่า — OrderItem แยกกัน) */
 export async function deleteProduct(id: string): Promise<void> {
   const storeId = await getCurrentStoreId();
+  const p = await prisma.product.findFirst({ where: { id, storeId }, select: { image: true } });
   await prisma.product.deleteMany({ where: { id, storeId } });
+  if (p?.image) await deleteProductImage(p.image);
+  revalidatePath("/admin/products");
+}
+
+/** อัพโหลดรูปสินค้า (เฉพาะของร้านปัจจุบัน) — แทนที่รูปเก่าถ้ามี */
+export async function setProductImage(id: string, formData: FormData): Promise<{ error?: string }> {
+  const storeId = await getCurrentStoreId();
+  const valid = validateSlip(formData.get("image") as File | null);
+  if (!valid.ok) return { error: valid.error };
+  const product = await prisma.product.findFirst({ where: { id, storeId }, select: { image: true } });
+  if (!product) return { error: "ไม่พบสินค้า" };
+
+  const url = await uploadProductImage(valid.file);
+  await prisma.product.update({ where: { id }, data: { image: url } });
+  await deleteProductImage(product.image); // ลบรูปเก่าหลังอัพใหม่สำเร็จ
+  revalidatePath("/admin/products");
+  return {};
+}
+
+/** ลบรูปสินค้า */
+export async function removeProductImage(id: string): Promise<void> {
+  const storeId = await getCurrentStoreId();
+  const product = await prisma.product.findFirst({ where: { id, storeId }, select: { image: true } });
+  if (!product?.image) return;
+  await prisma.product.update({ where: { id }, data: { image: null } });
+  await deleteProductImage(product.image);
   revalidatePath("/admin/products");
 }
 

@@ -62,7 +62,7 @@ export async function uploadSlip(formData: FormData): Promise<{ error?: string }
   await deleteSlipBlob(order.paymentSlipUrl);
 
   // ยอดที่ลูกค้าต้องชำระรอบนี้: มัดจำ = depositAmount, จ่ายเต็ม = ยอดรวม
-  const total = orderTotal({ items: order.items, shippingFee: order.shippingFee });
+  const total = orderTotal({ items: order.items, shippingFee: order.shippingFee, discount: order.discount });
   const amount = order.paymentType === "deposit" ? order.depositAmount : total;
 
   await prisma.order.update({

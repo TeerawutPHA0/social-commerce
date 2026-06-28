@@ -13,6 +13,7 @@ export default async function NewOrderPage() {
     storeLogo: store.logo,
     status: "received",
     shippingFee: store.defaultShippingFee,
+    discount: 0,
     shippingName: "",
     shippingPhone: "",
     shippingAddress: "",

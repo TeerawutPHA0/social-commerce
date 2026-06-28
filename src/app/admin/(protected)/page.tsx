@@ -185,7 +185,7 @@ export default async function AdminDashboard({
       ) : (
         <ul className="flex flex-col gap-3">
           {orders.map((o) => {
-            const total = o.items.reduce((s, it) => s + it.qty * it.price, 0) + o.shippingFee;
+            const total = Math.max(0, o.items.reduce((s, it) => s + it.qty * it.price, 0) + o.shippingFee - o.discount);
             const step = deriveStep(
               dbAddressComplete(o),
               o.paymentStatus,

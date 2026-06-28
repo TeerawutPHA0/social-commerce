@@ -42,6 +42,7 @@ function mapOrder(o: DbOrderForCustomer): Order {
     status: o.status as OrderStatus,
     items: o.items.map((it) => ({ name: it.name, qty: it.qty, price: it.price })),
     shippingFee: o.shippingFee,
+    discount: o.discount,
     shipping: {
       name: o.shippingName,
       phone: o.shippingPhone,
@@ -204,7 +205,7 @@ async function computeRevenue(storeId: string): Promise<number> {
   const rows = await prisma.$queryRaw<{ revenue: number }[]>`
     SELECT COALESCE(SUM(
       CASE WHEN o."paymentType" = 'deposit' THEN o."depositAmount"
-           ELSE o."shippingFee" + COALESCE(it.total, 0) END
+           ELSE GREATEST(0, o."shippingFee" + COALESCE(it.total, 0) - o."discount") END
     ), 0)::float8 AS revenue
     FROM "Order" o
     LEFT JOIN (
@@ -250,7 +251,7 @@ export async function getMonthlySales(monthsBack = 6): Promise<MonthlySales[]> {
     SELECT to_char(date_trunc('month', COALESCE(o."paymentTransferredAt", o."createdAt")), 'YYYY-MM') AS ym,
            COALESCE(SUM(
              CASE WHEN o."paymentType" = 'deposit' THEN o."depositAmount"
-                  ELSE o."shippingFee" + COALESCE(it.total, 0) END
+                  ELSE GREATEST(0, o."shippingFee" + COALESCE(it.total, 0) - o."discount") END
            ), 0)::float8 AS revenue,
            COUNT(*)::int AS orders
     FROM "Order" o
@@ -289,9 +290,9 @@ export function itemsSubtotal(order: Pick<Order, "items">): number {
   return order.items.reduce((sum, it) => sum + it.qty * it.price, 0);
 }
 
-/** ยอดรวมสุทธิ (สินค้า + ค่าส่ง) */
-export function orderTotal(order: Pick<Order, "items" | "shippingFee">): number {
-  return itemsSubtotal(order) + order.shippingFee;
+/** ยอดรวมสุทธิ (สินค้า + ค่าส่ง − ส่วนลด, ไม่ต่ำกว่า 0) */
+export function orderTotal(order: Pick<Order, "items" | "shippingFee" | "discount">): number {
+  return Math.max(0, itemsSubtotal(order) + order.shippingFee - (order.discount ?? 0));
 }
 
 /** index ของสถานะปัจจุบันใน flow (ใช้กับ timeline) */

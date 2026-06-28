@@ -45,6 +45,12 @@ export function OrderItemsCard({ order }: { order: Order }) {
             {freeShipping ? "ฟรี" : formatTHB(order.shippingFee)}
           </dd>
         </div>
+        {order.discount > 0 && (
+          <div className="flex justify-between text-pinkdeep">
+            <dt>ส่วนลด</dt>
+            <dd>−{formatTHB(order.discount)}</dd>
+          </div>
+        )}
         <div className="mt-1 flex items-center justify-between border-t border-pinksoft pt-3">
           <dt className="font-semibold text-brown">ยอดรวมทั้งสิ้น</dt>
           <dd className="text-lg font-bold text-brown">฿{formatTHB(total)}</dd>
