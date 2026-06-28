@@ -23,32 +23,39 @@ const FLOW_BADGE: Record<FlowStep, string> = {
   delivered: "bg-brown text-white",
 };
 
+/** สร้าง URL /admin โดยคงค่า filter/ค้นหา/หน้า เท่าที่จำเป็น */
+function hrefFor({ status, q, page }: { status?: string; q?: string; page?: number }): string {
+  const sp = new URLSearchParams();
+  if (status && status !== "all") sp.set("status", status);
+  if (q) sp.set("q", q);
+  if (page && page > 1) sp.set("page", String(page));
+  const s = sp.toString();
+  return s ? `/admin?${s}` : "/admin";
+}
+
 export default async function AdminDashboard({
   searchParams,
 }: {
-  searchParams: Promise<{ created?: string; no?: string; status?: string }>;
+  searchParams: Promise<{
+    created?: string;
+    no?: string;
+    status?: string;
+    q?: string;
+    page?: string;
+  }>;
 }) {
-  const { created, no, status } = await searchParams;
-  const [stats, allOrders, monthlySales] = await Promise.all([
+  const { created, no, status, q: qRaw, page: pageRaw } = await searchParams;
+  const q = qRaw?.trim() || "";
+  const activeFilter = FLOW_STEPS.includes(status as FlowStep) ? (status as FlowStep) : "all";
+  const page = Math.max(1, Number(pageRaw) || 1);
+
+  const [stats, list, monthlySales] = await Promise.all([
     getStats(),
-    listOrders(),
+    listOrders({ step: activeFilter, q, page }),
     getMonthlySales(6),
   ]);
-
-  // ฟิลเตอร์ตามสถานะ flow (status=all หรือไม่ระบุ = แสดงทั้งหมด)
-  const activeFilter = FLOW_STEPS.includes(status as FlowStep) ? (status as FlowStep) : "all";
-  const orders =
-    activeFilter === "all"
-      ? allOrders
-      : allOrders.filter(
-          (o) =>
-            deriveStep(
-              dbAddressComplete(o),
-              o.paymentStatus,
-              !!o.trackingNo,
-              !!o.deliveredAt
-            ) === activeFilter
-        );
+  const { orders, total, pageSize } = list;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div className="flex flex-col gap-6">
@@ -70,9 +77,41 @@ export default async function AdminDashboard({
       {/* กราฟยอดขายรายเดือน */}
       <MonthlySalesCard data={monthlySales} />
 
+      {/* Export CSV (ตามช่วงวันที่ + ฟิลเตอร์สถานะปัจจุบัน) */}
+      <form
+        action="/admin/orders/export"
+        method="get"
+        className="flex flex-wrap items-end gap-3 rounded-2xl bg-white p-4 shadow-[0_2px_12px_rgba(86,62,50,0.06)]"
+      >
+        {activeFilter !== "all" && <input type="hidden" name="status" value={activeFilter} />}
+        <label className="flex flex-col gap-1 text-xs text-brown/60">
+          จากวันที่
+          <input
+            type="date"
+            name="from"
+            className="rounded-xl border border-pinksoft bg-cream px-3 py-2 text-sm text-brown outline-none focus:border-pink"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-brown/60">
+          ถึงวันที่
+          <input
+            type="date"
+            name="to"
+            className="rounded-xl border border-pinksoft bg-cream px-3 py-2 text-sm text-brown outline-none focus:border-pink"
+          />
+        </label>
+        <button
+          type="submit"
+          className="rounded-xl border border-pinksoft bg-blush px-4 py-2 text-sm font-semibold text-brown shadow-sm transition active:scale-95"
+        >
+          ⬇ Export CSV
+        </button>
+        <span className="text-xs text-brown/40">เว้นวันที่ = ทั้งหมด · ใช้สถานะที่เลือกอยู่</span>
+      </form>
+
       {/* หัวข้อ + ปุ่มสร้าง */}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-bold text-brown">ออเดอร์ ({orders.length})</h1>
+        <h1 className="text-lg font-bold text-brown">ออเดอร์ ({total})</h1>
         <div className="flex items-center gap-2">
           <Link
             href="/admin/products"
@@ -89,15 +128,46 @@ export default async function AdminDashboard({
         </div>
       </div>
 
+      {/* ค้นหา (เลขบิล / ชื่อ / เบอร์โทร) — GET form คงค่า filter ปัจจุบัน */}
+      <form action="/admin" method="get" className="flex gap-2">
+        {activeFilter !== "all" && <input type="hidden" name="status" value={activeFilter} />}
+        <input
+          type="search"
+          name="q"
+          defaultValue={q}
+          placeholder="ค้นหาเลขบิล / ชื่อ / เบอร์โทร"
+          className="min-w-0 flex-1 rounded-xl border border-pinksoft bg-white px-4 py-2 text-sm text-brown outline-none focus:border-pink"
+        />
+        <button
+          type="submit"
+          className="shrink-0 rounded-xl border border-pinksoft bg-blush px-4 py-2 text-sm font-semibold text-brown shadow-sm transition active:scale-95"
+        >
+          ค้นหา
+        </button>
+        {q && (
+          <Link
+            href={hrefFor({ status: activeFilter })}
+            className="flex shrink-0 items-center rounded-xl border border-pinksoft bg-white px-3 py-2 text-sm text-brown/70 transition active:scale-95"
+          >
+            ล้าง
+          </Link>
+        )}
+      </form>
+
       {/* ฟิลเตอร์สถานะ */}
       <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-        <FilterChip label="ทั้งหมด" count={allOrders.length} href="/admin" active={activeFilter === "all"} />
+        <FilterChip
+          label="ทั้งหมด"
+          count={stats.totalOrders}
+          href={hrefFor({ status: "all", q })}
+          active={activeFilter === "all"}
+        />
         {FLOW_STEPS.map((s) => (
           <FilterChip
             key={s}
             label={FLOW_LABELS[s]}
             count={stats.byStep[s]}
-            href={`/admin?status=${s}`}
+            href={hrefFor({ status: s, q })}
             active={activeFilter === s}
           />
         ))}
@@ -106,14 +176,16 @@ export default async function AdminDashboard({
       {/* รายการ */}
       {orders.length === 0 ? (
         <p className="rounded-2xl bg-white p-8 text-center text-sm text-brown/50">
-          {allOrders.length === 0
+          {stats.totalOrders === 0
             ? "ยังไม่มีออเดอร์ — กด “สร้างออเดอร์” เพื่อเริ่ม"
-            : "ไม่มีออเดอร์ในสถานะนี้"}
+            : q
+              ? `ไม่พบออเดอร์ที่ตรงกับ “${q}”`
+              : "ไม่มีออเดอร์ในสถานะนี้"}
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
           {orders.map((o) => {
-            const total = o.items.reduce((s, it) => s + it.qty * it.price, 0) + o.shippingFee;
+            const total = Math.max(0, o.items.reduce((s, it) => s + it.qty * it.price, 0) + o.shippingFee - o.discount);
             const step = deriveStep(
               dbAddressComplete(o),
               o.paymentStatus,
@@ -149,6 +221,9 @@ export default async function AdminDashboard({
                   <Link href={`/admin/orders/${o.id}`} className="font-medium text-brown">
                     แก้ไข
                   </Link>
+                  <Link href={`/admin/orders/${o.id}/receipt`} className="font-medium text-brown">
+                    ใบเสร็จ
+                  </Link>
                   <span className="flex-1" />
                   <DeleteOrderButton id={o.id} orderNo={o.orderNo} />
                 </div>
@@ -157,7 +232,44 @@ export default async function AdminDashboard({
           })}
         </ul>
       )}
+
+      {/* แบ่งหน้า */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 pt-1 text-sm">
+          <PageLink
+            href={hrefFor({ status: activeFilter, q, page: page - 1 })}
+            disabled={page <= 1}
+            label="‹ ก่อนหน้า"
+          />
+          <span className="text-brown/60">
+            หน้า {page} / {totalPages}
+          </span>
+          <PageLink
+            href={hrefFor({ status: activeFilter, q, page: page + 1 })}
+            disabled={page >= totalPages}
+            label="ถัดไป ›"
+          />
+        </div>
+      )}
     </div>
+  );
+}
+
+function PageLink({ href, disabled, label }: { href: string; disabled: boolean; label: string }) {
+  if (disabled) {
+    return (
+      <span className="rounded-lg border border-pinksoft/50 px-3 py-1.5 font-medium text-brown/30">
+        {label}
+      </span>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      className="rounded-lg border border-pinksoft bg-white px-3 py-1.5 font-medium text-brown shadow-sm transition active:scale-95"
+    >
+      {label}
+    </Link>
   );
 }
 

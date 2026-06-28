@@ -105,13 +105,15 @@ export async function requireSession(): Promise<Session> {
   return s;
 }
 
-/* ===================== Login rate limit (best-effort) =====================
-   เก็บใน memory ของ instance — กัน brute force ได้ระดับหนึ่ง
-   หมายเหตุ: serverless มีหลาย instance/cold start → ของจริงควรย้ายไป Redis/DB */
+/** บังคับต้องเป็น owner — staff จะถูกเด้งกลับ /admin (ใช้กับหน้า/แอ็กชัน owner-only เช่น ตั้งค่า/จัดการผู้ใช้) */
+export async function requireOwner(): Promise<Session> {
+  const s = await requireSession();
+  if (s.role !== "owner") redirect("/admin");
+  return s;
+}
 
-const WINDOW_MS = 15 * 60 * 1000; // 15 นาที
-const MAX_ATTEMPTS = 8;
-const attempts = new Map<string, { count: number; resetAt: number }>();
+/* ===================== Login rate limit =====================
+   ย้ายไป lib/ratelimit.ts (pluggable: Upstash Redis ถ้ามี env / in-memory ถ้าไม่มี) */
 
 /** IP ของผู้เรียก (สำหรับ rate limit) */
 export async function clientIp(): Promise<string> {
@@ -121,25 +123,4 @@ export async function clientIp(): Promise<string> {
     h.get("x-real-ip") ||
     "unknown"
   );
-}
-
-export function checkRateLimit(ip: string): { ok: boolean; retryAfterSec?: number } {
-  const now = Date.now();
-  const rec = attempts.get(ip);
-  if (!rec || rec.resetAt < now) return { ok: true };
-  if (rec.count >= MAX_ATTEMPTS) {
-    return { ok: false, retryAfterSec: Math.ceil((rec.resetAt - now) / 1000) };
-  }
-  return { ok: true };
-}
-
-export function recordFailedAttempt(ip: string): void {
-  const now = Date.now();
-  const rec = attempts.get(ip);
-  if (!rec || rec.resetAt < now) attempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
-  else rec.count += 1;
-}
-
-export function clearAttempts(ip: string): void {
-  attempts.delete(ip);
 }

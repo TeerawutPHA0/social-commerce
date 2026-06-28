@@ -10,6 +10,7 @@ import {
   amountDue,
   formatTHB,
 } from "@/lib/orders";
+import { promptpayQrDataUrl } from "@/lib/promptpay";
 import { StoreHeader } from "@/components/track/StoreHeader";
 import { StatusTimeline } from "@/components/track/StatusTimeline";
 import { OrderItemsCard } from "@/components/track/OrderItemsCard";
@@ -49,6 +50,12 @@ export default async function TrackOrderPage({ params }: Props) {
   const dueAmount = amountDue(order.payment.type, order.payment.depositAmount, total);
   const remaining = Math.max(0, total - order.payment.depositAmount);
 
+  // QR พร้อมเพย์ฝังยอดที่ต้องโอนรอบนี้ (สร้างเฉพาะตอนยังไม่จ่าย — ประหยัด)
+  const promptpayQr =
+    order.payment.status === "unpaid"
+      ? await promptpayQrDataUrl(order.store.pay.promptpayId, dueAmount)
+      : null;
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-4 pt-6 pb-12">
       <StoreHeader order={order} />
@@ -87,6 +94,7 @@ export default async function TrackOrderPage({ params }: Props) {
               remainingText={formatTHB(remaining)}
               slipUrl={order.payment.slipUrl}
               pay={order.store.pay}
+              promptpayQr={promptpayQr}
             />
           )}
 

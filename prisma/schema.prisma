@@ -22,13 +22,22 @@ model Store {
   payAccountName     String  @default("")
   /// [{ label, value, note? }] — บัญชี/พร้อมเพย์/วอลเล็ต
   payMethods         Json    @default("[]")
-  /// path/URL รูป QR (null = ไม่มี)
+  /// path/URL รูป QR (null = ไม่มี) — ใช้เป็น fallback ถ้าไม่ได้ตั้ง promptpayId
   payQrImage         String?
+  /// เลขพร้อมเพย์ (เบอร์มือถือ/บัตรปชช.) — ระบบ gen QR ตามยอดบิลอัตโนมัติ ("" = ไม่ใช้)
+  promptpayId        String  @default("")
   payWarning         String?
   defaultShippingFee Float   @default(0)
 
   /// API key ของขนส่งต่อร้าน (ยังไม่เข้ารหัส — Phase 3 ค่อยทำ) | null = ใช้ค่า env กลาง
   courierConfig Json?
+
+  /// แจ้งเตือนร้านผ่าน LINE OA (Phase 6) — token/secret เข้ารหัสก่อนเก็บ (ดู lib/crypto.ts)
+  lineChannelToken  String? /// Channel Access Token (long-lived) สำหรับ push/reply
+  lineChannelSecret String? /// Channel Secret สำหรับ verify ลายเซ็น webhook
+  /// userId ของร้าน (ปลายทางรับ push) ที่จับได้จาก webhook ตอนร้านทักแชต OA
+  lineUserId        String?
+  lineNotifyEnabled Boolean @default(false)
 
   users    User[]
   orders   Order[]
@@ -67,11 +76,13 @@ model Order {
 
   /// snapshot ชื่อ/โลโก้ร้าน ณ ตอนสร้างบิล (กันแบรนด์เปลี่ยนแล้วบิลเก่าเพี้ยน)
   storeName String
-  storeLogo String @default("/logo.jpg")
+  storeLogo String @default("/logo.svg")
 
   /// received | preparing | shipped | delivered
   status      String @default("received")
   shippingFee Float  @default(0)
+  /// ส่วนลดต่อบิล (บาท) — หักจากยอดรวม
+  discount    Float  @default(0)
 
   shippingName     String
   shippingPhone    String
@@ -106,12 +117,16 @@ model Order {
 
   @@unique([storeId, orderNo])
   @@index([storeId, status])
+  /// เรียง/แบ่งหน้า "ออเดอร์ล่าสุดของร้าน" + กรองช่วงเดือน (สถิติ) ให้ใช้ index
+  @@index([storeId, createdAt])
 }
 
 /// แคตตาล็อกสินค้าที่ร้านบันทึกไว้ (ไว้เลือกตอนสร้างบิล) — แยกจาก OrderItem
 model Product {
   id   String @id @default(cuid())
   name String
+  /// URL รูปสินค้า (Vercel Blob / local) — null = ไม่มีรูป
+  image String?
 
   store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
   storeId String

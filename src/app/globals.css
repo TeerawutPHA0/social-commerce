@@ -26,3 +26,9 @@ body {
   color: var(--color-brown);
   font-family: var(--font-sans);
 }
+
+/* โหมดพิมพ์ (ใบเสร็จ) — ซ่อน nav/ปุ่มที่ไม่ต้องพิมพ์ */
+@media print {
+  header { display: none !important; }
+  .no-print { display: none !important; }
+}

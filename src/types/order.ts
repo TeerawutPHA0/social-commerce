@@ -34,6 +34,8 @@ export interface StorePaymentInfo {
   methods: PaymentMethod[];
   /** path/URL รูป QR (null = ไม่มี) */
   qrImage: string | null;
+  /** เลขพร้อมเพย์ ("" = ไม่ใช้) — ใช้ gen QR ตามยอดบิลอัตโนมัติ */
+  promptpayId: string;
   warning: string | null;
 }
 
@@ -62,6 +64,8 @@ export interface Order {
   items: OrderItem[];
   /** ค่าส่ง (บาท) — 0 = ส่งฟรี */
   shippingFee: number;
+  /** ส่วนลดต่อบิล (บาท) — หักจากยอดรวม */
+  discount: number;
   shipping: {
     name: string;
     phone: string;
@@ -99,6 +103,8 @@ export interface OrderFormInput {
   storeLogo: string;
   status: OrderStatus;
   shippingFee: number;
+  /** ส่วนลดต่อบิล (บาท) */
+  discount: number;
   shippingName: string;
   shippingPhone: string;
   shippingAddress: string;

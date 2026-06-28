@@ -9,7 +9,9 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  if (!(await getSession())) redirect("/admin/login");
+  const session = await getSession();
+  if (!session) redirect("/admin/login");
+  const isOwner = session.role === "owner";
   const brand = await getStoreBrand();
 
   return (
@@ -26,11 +28,19 @@ export default async function AdminLayout({
             >
               สินค้า
             </Link>
+            {isOwner && (
+              <Link
+                href="/admin/settings"
+                className="text-sm font-medium text-brown/60 transition hover:text-brown"
+              >
+                ตั้งค่า
+              </Link>
+            )}
             <Link
-              href="/admin/settings"
+              href="/admin/account"
               className="text-sm font-medium text-brown/60 transition hover:text-brown"
             >
-              ตั้งค่า
+              บัญชี
             </Link>
           </div>
           <form action={logoutAction}>
