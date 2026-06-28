@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { orderTotal, formatTHB } from "@/lib/orders";
-import { validateSlip, uploadSlipBlob, deleteSlipBlob } from "@/lib/slip";
+import { validateSlip, isRealImage, uploadSlipBlob, deleteSlipBlob } from "@/lib/slip";
 import { notifyMerchant } from "@/lib/notify";
 import { appOrigin } from "@/lib/url";
 
@@ -49,6 +49,8 @@ export async function uploadSlip(formData: FormData): Promise<{ error?: string }
   const valid = validateSlip(formData.get("slip") as File | null);
   if (!valid.ok) return { error: valid.error };
   if (!token) return { error: "ไม่พบออเดอร์" };
+  // ตรวจเนื้อไฟล์จริง (กันปลอม Content-Type)
+  if (!(await isRealImage(valid.file))) return { error: "ไฟล์ไม่ใช่รูปภาพที่รองรับ" };
 
   const order = await prisma.order.findUnique({
     where: { token },
@@ -58,8 +60,6 @@ export async function uploadSlip(formData: FormData): Promise<{ error?: string }
 
   // อัพรูปขึ้น Vercel Blob (Vercel serverless เขียนไฟล์ลง disk ไม่ได้)
   const slipUrl = await uploadSlipBlob(token, valid.file);
-  // ลบสลิปเก่า (ถ้ามี) ออกจาก Blob กันไฟล์ค้าง
-  await deleteSlipBlob(order.paymentSlipUrl);
 
   // ยอดที่ลูกค้าต้องชำระรอบนี้: มัดจำ = depositAmount, จ่ายเต็ม = ยอดรวม
   const total = orderTotal({ items: order.items, shippingFee: order.shippingFee, discount: order.discount });
@@ -74,6 +74,9 @@ export async function uploadSlip(formData: FormData): Promise<{ error?: string }
       paymentTransferredAt: new Date(),
     },
   });
+
+  // ลบสลิปเก่าหลัง DB อัปเดตสำเร็จ (กันลบทิ้งแล้ว update fail → ไม่มีรูปเลย)
+  await deleteSlipBlob(order.paymentSlipUrl);
 
   // แจ้งร้านทาง LINE ว่ามีสลิปใหม่รอตรวจ (ห้ามพัง flow ถ้าแจ้งไม่สำเร็จ)
   const base = await appOrigin();

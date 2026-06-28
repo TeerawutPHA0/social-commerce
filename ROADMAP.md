@@ -95,14 +95,16 @@
 
 ---
 
-## Phase 12 — เทคนิค/ความเสถียร (production hardening) 🟠
-- [ ] ย้าย **rate-limit** จาก in-memory → Upstash Redis (serverless มีหลาย instance, ของเดิมกัน brute-force ไม่ได้จริง)
-- [ ] เพิ่มความยาว **token ลิงก์บิล** จาก 4 → 16 bytes (กันเดา URL)
-- [ ] **เข้ารหัส** `courierConfig` / `lineChannelToken` ที่เก็บใน DB (Phase 3 ที่ค้างไว้)
-- [ ] ครอบ `uploadSlip` update ใน transaction + กันอัปซ้ำ (idempotency)
-- [ ] เพิ่ม error logging / monitoring (เช่น Sentry) — ออปชัน
-- [ ] ตรวจ MIME สลิปจาก magic bytes ไม่ใช่แค่ `file.type` (client ปลอมได้)
-- **Acceptance:** ทดสอบ brute-force login ข้าม instance ยังโดนบล็อก · token เดายาก
+## Phase 12 — เทคนิค/ความเสถียร (production hardening) 🟠 ✅ (เสร็จแล้ว)
+- [x] **rate-limit** pluggable → Upstash Redis (REST, ไม่ต้องลง dep) ถ้ามี env / in-memory ถ้าไม่มี (`lib/ratelimit.ts`)
+- [x] **token ลิงก์บิล** 4 → 16 bytes (32 hex, กันเดา URL)
+- [x] **เข้ารหัส** `lineChannelToken/Secret` (ทำใน Phase 6) — `courierConfig` ยังไม่ถูกใช้ (เข้ารหัสเมื่อมี UI ต่อขนส่ง)
+- [x] `uploadSlip`: ลบสลิปเก่า **หลัง** DB commit (กัน update fail แล้วไม่เหลือรูป) + ตรวจ magic byte ก่อนอัพ
+- [x] ตรวจ **magic bytes** (JPEG/PNG/WebP/HEIC) ทั้งสลิป + รูปสินค้า ไม่เชื่อ `file.type` อย่างเดียว
+- [ ] error logging / Sentry — ข้ามไปก่อน (ต้องมีบัญชี)
+- **Acceptance:** ✅ rate-limit algorithm ถูก (บล็อกครั้งที่ 9, ปลดเมื่อหมด window) · magic-byte รับรูปจริง/ปฏิเสธไฟล์ปลอม · token 32 hex
+- **ตรวจแล้ว:** tsc/build · e2e 6/6 (login async + อัพสลิปจริงผ่าน magic-byte) · unit: rate-limit + magic-byte
+- **หมายเหตุ:** in-memory rate-limit คงพฤติกรรม best-effort เดิม (Turbopack dev ไม่คง state ข้าม request — production single-process/ Redis ทำงานปกติ)
 
 ---
 

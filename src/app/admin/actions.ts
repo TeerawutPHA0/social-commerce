@@ -12,13 +12,11 @@ import {
   requireSession,
   requireOwner,
   clientIp,
-  checkRateLimit,
-  recordFailedAttempt,
-  clearAttempts,
 } from "@/lib/auth";
+import { checkRateLimit, recordFailedAttempt, clearAttempts } from "@/lib/ratelimit";
 import { getTrackingStatus } from "@/lib/couriers";
 import { getCurrentStoreId } from "@/lib/store";
-import { deleteSlipBlob, validateSlip } from "@/lib/slip";
+import { deleteSlipBlob, validateSlip, isRealImage } from "@/lib/slip";
 import { uploadProductImage, deleteProductImage } from "@/lib/productImage";
 import { encrypt } from "@/lib/crypto";
 import { deliverToMerchant } from "@/lib/notify";
@@ -32,7 +30,7 @@ export async function loginAction(
   formData: FormData
 ): Promise<{ error?: string }> {
   const ip = await clientIp();
-  const limit = checkRateLimit(ip);
+  const limit = await checkRateLimit(ip);
   if (!limit.ok) {
     return { error: `พยายามเข้าสู่ระบบบ่อยเกินไป ลองใหม่ใน ${limit.retryAfterSec} วินาที` };
   }
@@ -46,11 +44,11 @@ export async function loginAction(
   // verify เสมอ (แม้ไม่เจอ user) เพื่อลด timing leak ว่า email มีอยู่ไหม
   const ok = user ? await verifyPassword(pw, user.passwordHash) : false;
   if (!user || !ok) {
-    recordFailedAttempt(ip);
+    await recordFailedAttempt(ip);
     return { error: "อีเมลหรือรหัสผ่านไม่ถูกต้อง" };
   }
 
-  clearAttempts(ip);
+  await clearAttempts(ip);
   await startSession({ id: user.id, storeId: user.storeId, role: user.role });
   redirect("/admin");
 }
@@ -118,7 +116,7 @@ export async function removeStaff(userId: string): Promise<{ error?: string }> {
 
 async function genUniqueToken(): Promise<string> {
   for (;;) {
-    const token = "order_" + crypto.randomBytes(4).toString("hex"); // 8 hex
+    const token = "order_" + crypto.randomBytes(16).toString("hex"); // 32 hex (กันเดา URL)
     const exists = await prisma.order.findUnique({ where: { token } });
     if (!exists) return token;
   }
@@ -294,6 +292,7 @@ export async function setProductImage(id: string, formData: FormData): Promise<{
   const storeId = await getCurrentStoreId();
   const valid = validateSlip(formData.get("image") as File | null);
   if (!valid.ok) return { error: valid.error };
+  if (!(await isRealImage(valid.file))) return { error: "ไฟล์ไม่ใช่รูปภาพที่รองรับ" };
   const product = await prisma.product.findFirst({ where: { id, storeId }, select: { image: true } });
   if (!product) return { error: "ไม่พบสินค้า" };
 

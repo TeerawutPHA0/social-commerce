@@ -14,6 +14,20 @@ const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "image/heic"];
 
 export type SlipValidation = { ok: true; file: File } | { ok: false; error: string };
 
+/**
+ * ตรวจ "เนื้อไฟล์จริง" จาก magic bytes (กัน client ปลอม Content-Type)
+ * รองรับ JPEG / PNG / WebP / HEIC(ftyp)
+ */
+export async function isRealImage(file: File): Promise<boolean> {
+  const buf = Buffer.from(await file.slice(0, 16).arrayBuffer());
+  if (buf.length < 12) return false;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true; // JPEG
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return true; // PNG
+  if (buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP") return true; // WebP
+  if (buf.toString("ascii", 4, 8) === "ftyp") return true; // HEIC/HEIF
+  return false;
+}
+
 /** ตรวจไฟล์สลิปก่อนอัพ — ต้องเป็นรูปภาพ + ไม่เกินขนาดที่กำหนด */
 export function validateSlip(file: File | null): SlipValidation {
   if (!file || file.size === 0) return { ok: false, error: "ไม่พบไฟล์สลิป" };
